@@ -1,0 +1,17 @@
+{
+  "Passed": true,
+  "PowerShell": "7.7.0",
+  "NativeParser": "Passed",
+  "ToolkitChecks": 82,
+  "LogsChecks": 37,
+  "OriginalHelperScenarios": 9,
+  "OriginalHelperAssertions": 21,
+  "PagerCases": 18,
+  "AuditAssertions": 159,
+  "AuditTerminalGateAssertions": 48,
+  "LiveTenantTested": false,
+  "Authentication": "Mocks only",
+  "ActualCliSyntheticLogs": "Passed, exit 0; terminal source viewer checked",
+  "ActualCliSyntheticAudit": "Passed, exit 0; terminal source viewer checked",
+  "OptionalJsonCsvExports": "Passed, exit 0 for Logs and Audit; no HTML/JS files"
+}
