@@ -21,9 +21,11 @@ Use **PowerShell 7.4+**, not Windows PowerShell 5.1. Extract this folder into a 
 Already-installed, organization-approved modules are required for live work:
 
 - `Microsoft.Graph.Authentication`, exposing `Connect-MgGraph -UseDeviceCode` and `Get-MgContext`.
-- `ExchangeOnlineManagement` **3.7.0+** for Trace V2 and REST connection metadata.
+- `ExchangeOnlineManagement` **3.7.0+** for Trace V2 and REST connection metadata. Versions **3.10+ require PowerShell 7.6+**; use a compatible version on 7.4/7.5.
 
-The app imports installed modules when connecting but never installs or updates them. Use a clean PowerShell process when session ambiguity occurs. Do not weaken execution policy, identity policy or security controls to make a run succeed.
+For a clean Windows, macOS or Debian machine, follow the two-step [prerequisite guide](docs/PREREQUISITES.md): official PowerShell runtime first, then `./Install-Prerequisites.ps1` (local plan by default). Use `-Mode Install -IncludeExchange -WhatIf` to preview optional messaging components and remove `-WhatIf` only for an approved per-user install. Python is not required. Debian Exchange setup is skipped as unsupported; Purview is unavailable on macOS/Linux.
+
+The separate prerequisite installer never signs in. The runtime app imports installed modules when connecting but never installs or updates them. Use a clean PowerShell process when session ambiguity occurs. Do not weaken execution policy, identity policy or security controls to make a run succeed.
 
 ### Authentication limitation, clearly stated
 

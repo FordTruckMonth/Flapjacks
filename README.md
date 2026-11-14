@@ -21,6 +21,20 @@ Live startup offers Microsoft Graph device sign-in (default), Exchange device si
 
 Run `./terminal/tests/Test-All.ps1` for the integrated synthetic suite. See [migration and limitations](docs/TERMINAL-MIGRATION.md), [authentication](terminal/docs/AUTHENTICATION.md), and [validation](terminal/docs/VALIDATION.json). Live authentication and tenant APIs have **not** been validated by this change.
 
+## Prerequisites and installation
+
+- **PowerShell 7.4+**; use a currently supported stable/LTS release. Windows PowerShell 5.1 and Python are not toolkit prerequisites.
+- **Microsoft.Graph.Authentication** for Graph; explicitly opt in to **ExchangeOnlineManagement 3.7+** and its dependencies for Exchange. EXO 3.10+ requires PowerShell 7.6+.
+- Start from a clean machine with the official **Windows, macOS or Debian** runtime instructions, then the shared per-user module installer in [Prerequisites and setup](terminal/docs/PREREQUISITES.md). It is a two-step setup, not a runtime bootstrap script.
+
+```powershell
+./terminal/Install-Prerequisites.ps1                         # Local plan only
+./terminal/Install-Prerequisites.ps1 -Mode Install -IncludeExchange -WhatIf
+./terminal/Install-Prerequisites.ps1 -Mode Install -IncludeExchange
+```
+
+No automatic elevation, trust/execution-policy change, sign-in or consent. Debian Exchange support is not claimed and its Exchange install is skipped; Purview is unavailable on macOS/Linux. Missing components remain explicit coverage gaps. Synthetic mode needs only PowerShell. See the setup guide before installing.
+
 ## Legacy investigator (preserved)
 
 The original entrypoint and implementation remain unchanged for compatibility and reproducibility. The instructions below describe that **legacy** workflow, which writes a static HTML report and can perform broader tenant-context reads. New operators should use the terminal entrypoint above.
