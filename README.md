@@ -1,5 +1,7 @@
 # M365 phishing/BEC investigator — review build
 
+![Bacon, egg and cheese sandwich beside a magnifying glass and email envelopes: a playful BEC investigation pun.](docs/assets/bec-breakfast-banner.webp)
+
 This PowerShell tool collects **read-only metadata** for a target mailbox and produces a local evidence case. It includes a complete synthetic demonstration and executable Exchange, Purview, Entra and optional Defender adapters. It never authenticates, installs modules, retrieves message bodies/attachments, fetches evidence URLs, or remediates a tenant.
 
 **Review-ready fixture build; not live-tenant validated or a complete forensic acquisition.** Non-interactive user sign-ins have a separately labeled, opt-in Graph beta collector; its preview contract can change and is not a production support guarantee. See [coverage and limitations](docs/COVERAGE.md). An empty source is never a clean verdict.
