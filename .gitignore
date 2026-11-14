@@ -1,0 +1,14 @@
+cases/
+test-results/
+*.log
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
+*.kdbx
+.DS_Store
+.vscode/
+.idea/
