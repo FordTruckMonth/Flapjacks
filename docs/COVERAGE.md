@@ -1,0 +1,18 @@
+# Review acceptance and remaining limitations
+
+This is a functioning offline review build with implemented live adapters, **not a claim that the full investigation scope is live-accepted**. No tenant authentication or collection was performed. Source status is one of Collected, Partial, Denied, Unavailable, OutsideRetention. “Collected” means the described available request completed; it never establishes complete retention or absence of compromise.
+
+| Area | Implemented and fixture-verified | Remaining limitation |
+|---|---|---|
+| CLI | Target prompt, 30-day default, explicit UTC range, fixture/live separation, bounded output | Live operator authentication remains separate and untested. |
+| Exchange | All requested current snapshot categories; hidden rules; full/SendAs/SendOnBehalf; folder ACL cap/failures | Actual field availability, archive state, RBAC and tenant cmdlet support untested. No historical reconstruction from snapshots. |
+| Trace | Sent/received, 10-day windows, full-page continuation, details, quotas, no-progress/caps, dedupe, volumes | Trace latency and real continuation semantics need tenant acceptance. Current primary/SMTP aliases are queried; past aliases cannot be reconstructed from the current snapshot. Messages with more than 1,000 recipients may need a separate trace-ID-specific investigation. |
+| Purview | Daily ReturnLargeSet paging; other-actor target matching; raw Bind/Sync granularity | Tenant-wide 50k/session cap may prevent full collection. Missing/legacy identities can evade matching. No Management Activity API adapter. |
+| Entra | v1.0 sign-in success/failure data, audits/security/MFA changes where returned, user/tenant OAuth delegated grants, risks | Non-interactive user sign-ins are implemented as an opt-in, separately labeled beta collector; unavailable unless requested. Preview schema/support limitations remain. No app-only service-principal assignment inventory. CA/MFA fields can be unavailable. Global cloud only. |
+| Defender | Modern Graph hunting, clicks, delivery/post-delivery and account-associated alert evidence | Requires deployed licensed services. Alert coverage is account-associated evidence, not all alerts. Capped table/day queries. No complete browsing or quarantine inventory claim. |
+| Timeline | UTC, unknown timestamps, dedupe/raw references, conservative message/session/IP links, named flags | Not a forensic attribution engine. Link cap 10,000; raw records remain available. |
+| Reports | Escaped static HTML, guarded CSV, raw JSON, provenance, hashes/verification, traversal/symlink checks | Native browser visual acceptance not performed; HTML structure/content checked programmatically. No encryption, signing or OS permission changes. |
+
+Retention: trace normally 90 days; query maximum 10 days. Entra audit/sign-in storage defaults 7 days Free or 30 days P1/P2, while Graph sign-in download requires eligible licensing. Defender hunting normally 30 days. UAL depends on policy/workload/license; current MailItemsAccessed documentation includes Audit Standard E3/E5 and must not be labeled E5-only. A requested 30-day window does not guarantee 30 available days.
+
+Next acceptance requires an authorized operator in a test tenant to review requested roles/scopes, run a short known-data interval, compare provider results and coverage flags, then validate the real paging/throttle behavior. No such authorization or connection is implied by this review build. For live non-interactive sign-ins, the operator must decide whether the documented preview API is acceptable in their environment, then explicitly include it; an independently authorized export is an alternative.
