@@ -8,12 +8,12 @@ function Check($name,$condition){$checks.Add(@{Name=$name;Passed=[bool]$conditio
 function Rejects([scriptblock]$body){try{& $body | Out-Null;return $false}catch{return $true}}
 $tenant=[guid]'11111111-2222-3333-4444-555555555555';$account='operator@contoso.example'
 function New-TestRuntime([string[]]$Inputs=@()){
-    $state=@{Inputs=[Collections.Generic.Queue[string]]::new();Output=[Collections.Generic.List[string]]::new();Calls=[Collections.Generic.List[object]]::new();Denial=$false;
+    $state=@{Inputs=[Collections.Generic.Queue[string]]::new();Output=[Collections.Generic.List[string]]::new();Prompts=[Collections.Generic.List[string]]::new();Calls=[Collections.Generic.List[object]]::new();Denial=$false;
       Graph=@{TenantId=$tenant.ToString();Account=$account;AuthType='Delegated';Environment='Global';Scopes=@('User.Read','AuditLog.Read.All','Directory.Read.All','IdentityRiskEvent.Read.All')};
       Exchange=@(@{TenantID=$tenant.ToString();UserPrincipalName=$account;State='Connected';TokenStatus='Active';CertificateAuthentication=$false;IsEopSession=$false;ModulePrefix='';DelegatedOrganization='';ModuleName='SyntheticExchange';ConnectionUri='https://outlook.office365.com/powershell-liveid/'})}
     foreach($input in $Inputs){$state.Inputs.Enqueue($input)}
     return @{State=$state;
-      Read={param($p)if(-not $state.Inputs.Count){throw "Unexpected prompt: $p"};$state.Inputs.Dequeue()}.GetNewClosure();
+      Read={param($p)$state.Prompts.Add($p);if(-not $state.Inputs.Count){throw "Unexpected prompt: $p"};$state.Inputs.Dequeue()}.GetNewClosure();
       Write={param($s)$state.Output.Add([string]$s)}.GetNewClosure();
       Local={param($c,$p)$state.Calls.Add(@{Kind='Local';Command=$c});if($c -eq 'Get-MgContext'){return $state.Graph};return $state.Exchange}.GetNewClosure();
       Connect={param($s,$p)$state.Calls.Add(@{Kind='Connect';Service=$s;Parameters=$p});if($state.Denial){throw 'Synthetic CA denial'};if($s -eq 'Graph'){$state.Graph.Scopes=$p.Scopes}}.GetNewClosure();
@@ -57,7 +57,7 @@ $r=New-TestRuntime @('S');$r.State.Graph.Scopes=@('User.Read');Request-ToolkitGr
 Check 'missing scope skipped without grant or reconnect' (@($r.State.Calls | Where-Object Kind -eq 'Connect').Count -eq 0)
 $r=New-TestRuntime @('D');$r.State.Graph.Scopes=@('User.Read');Request-ToolkitGraphScopes $r $tenant $account @('AuditLog.Read.All')
 $connect=@($r.State.Calls | Where-Object Kind -eq 'Connect')
-Check 'explicit action auth requests only action read scopes' ($connect.Count -eq 1 -and @($connect[0].Parameters.Scopes).Count -eq 2 -and 'Policy.Read.All' -notin $connect[0].Parameters.Scopes)
+Check 'explicit action auth requests only action read scopes' ($connect.Count -eq 1 -and @($connect[0].Parameters.Scopes).Count -eq 1 -and 'Policy.Read.All' -notin $connect[0].Parameters.Scopes)
 $r=New-TestRuntime;$null=Assert-ToolkitExchangeSession $r $tenant $account
 Check 'matching Exchange REST metadata accepted' ($true)
 foreach($change in @(@('TenantID','99999999-2222-3333-4444-555555555555'),@('UserPrincipalName','other@contoso.example'),@('TokenStatus','Expired'),@('CertificateAuthentication',$true),@('ModulePrefix','other'),@('DelegatedOrganization','other.example'),@('ConnectionUri','https://evil.example/'))){
@@ -79,22 +79,91 @@ $null=& $transport 'Get-Mailbox' @{Identity='alex@contoso.example'};$r.State.Exc
 Check 'session changed mid-run refused' (Rejects {& $transport 'Get-Mailbox' @{Identity='alex@contoso.example'}})
 Check 'mid-run change prevented second provider call' (@($r.State.Calls | Where-Object Kind -eq 'Read').Count -eq 1)
 
+# Provider-first startup: authenticated metadata is the authority, never typed tenant/account.
+$r=New-TestRuntime @('','Y','Q');$null=Invoke-M365Terminal -Mode Live -Runtime $r
+$connect=@($r.State.Calls | Where-Object Kind -eq 'Connect')
+Check 'first prompt offers Microsoft sign-in and reuse without tenant entry' ($r.State.Prompts[0] -like 'G = Microsoft Graph device sign-in*' -and @($r.State.Prompts | Where-Object {$_ -eq 'Tenant ID (exact GUID)' -or $_ -like 'Admin/operator account UPN*'}).Count -eq 0)
+Check 'default Graph discovery uses documented device code without manual TenantId' ($connect.Count -eq 1 -and $connect[0].Service -eq 'Graph' -and $connect[0].Parameters.Count -eq 3 -and $connect[0].Parameters.UseDeviceCode -and $connect[0].Parameters.Scopes.Count -eq 1 -and $connect[0].Parameters.Scopes[0] -eq 'User.Read' -and -not $connect[0].Parameters.ContainsKey('TenantId'))
+Check 'Graph startup never requires Exchange' (@($r.State.Calls | Where-Object {$_.Kind -eq 'Local' -and $_.Command -eq 'Get-ConnectionInformation'}).Count -eq 0)
+Check 'authenticated tenant and account displayed before menu' (($r.State.Output -join ' ') -match [regex]::Escape($tenant.ToString()) -and ($r.State.Output -join ' ') -match [regex]::Escape($account) -and $r.State.Prompts[1] -eq 'Use this resolved account and organization? Y/N [N]')
+$r=New-TestRuntime @('E','Y','Q');$null=Invoke-M365Terminal -Mode Live -Runtime $r
+$connect=@($r.State.Calls | Where-Object Kind -eq 'Connect')
+Check 'Exchange startup uses only documented Device parameter' ($connect.Count -eq 1 -and $connect[0].Service -eq 'Exchange' -and $connect[0].Parameters.Count -eq 1 -and $connect[0].Parameters.Device)
+Check 'Exchange startup never touches Graph before action selection' (@($r.State.Calls | Where-Object {$_.Kind -eq 'Local' -and $_.Command -eq 'Get-MgContext'}).Count -eq 0)
+foreach($provider in @('G','E')){
+ $r=New-TestRuntime @('R',$provider,'Y','Q');$null=Invoke-M365Terminal -Mode Live -Runtime $r
+ Check "existing $provider reused without authentication" (@($r.State.Calls | Where-Object Kind -eq 'Connect').Count -eq 0)
+}
+$r=New-TestRuntime @('Q');$null=Invoke-M365Terminal -Mode Live -Runtime $r
+Check 'startup quit makes no session or auth calls' ($r.State.Calls.Count -eq 0)
+foreach($provider in @('G','E')){
+ $r=New-TestRuntime @($provider);$r.State.Denial=$true
+ Check "startup $provider CA denial propagates" (Rejects {Invoke-M365Terminal -Mode Live -Runtime $r})
+ Check "startup $provider denial not retried or changed flow" (@($r.State.Calls | Where-Object Kind -eq 'Connect').Count -eq 1 -and $r.State.Prompts.Count -eq 1)
+}
+$r=New-TestRuntime @('R','G','N');$null=Invoke-M365Terminal -Mode Live -Runtime $r
+Check 'resolved context decline stops before menu and collection' ($r.State.Prompts.Count -eq 3 -and @($r.State.Calls | Where-Object {$_.Kind -in @('Connect','Read')}).Count -eq 0)
+foreach($provider in @('G','E')){foreach($bad in @('','not-a-guid',[guid]::Empty.ToString())){
+ $r=New-TestRuntime @('R',$provider)
+ if($provider -eq 'G'){$r.State.Graph.TenantId=$bad}else{$r.State.Exchange[0].TenantID=$bad}
+ Check "unreliable $provider tenant refused $($checks.Count)" (Rejects {Invoke-M365Terminal -Mode Live -Runtime $r})
+ Check "unreliable tenant never prompted manually or queried $($checks.Count)" ($r.State.Prompts.Count -eq 2 -and @($r.State.Calls | Where-Object {$_.Kind -in @('Connect','Read')}).Count -eq 0)
+}}
+$r=New-TestRuntime @('R','E');$r.State.Exchange[0].UserPrincipalName=''
+Check 'missing Exchange operator identity refused' (Rejects {Invoke-M365Terminal -Mode Live -Runtime $r})
+$r=New-TestRuntime @('R','G');$r.State.Graph.Account=''
+Check 'missing Graph operator identity refused' (Rejects {Invoke-M365Terminal -Mode Live -Runtime $r})
+$r=New-TestRuntime @('R','E');$r.State.Exchange+=@($r.State.Exchange[0].Clone())
+Check 'ambiguous startup Exchange sessions fail closed before confirmation' (Rejects {Invoke-M365Terminal -Mode Live -Runtime $r})
+$r=New-TestRuntime @('D');$r.State.Graph.Account='other@contoso.example'
+Check 'wrong Graph account after explicit device sign-in is refused' (Rejects {Request-ToolkitGraphScopes $r $tenant $account @('AuditLog.Read.All')})
+$connect=@($r.State.Calls | Where-Object Kind -eq 'Connect')
+Check 'subsequent Graph auth receives verified tenant and only selected scope' ($connect.Count -eq 1 -and $connect[0].Parameters.TenantId -eq $tenant.ToString() -and $connect[0].Parameters.Scopes.Count -eq 1 -and $connect[0].Parameters.Scopes[0] -eq 'AuditLog.Read.All')
+$r=New-TestRuntime @('D');$r.State.Graph.TenantId='99999999-2222-3333-4444-555555555555'
+Check 'wrong Graph tenant after explicit sign-in is refused' (Rejects {Request-ToolkitGraphScopes $r $tenant $account @('AuditLog.Read.All')})
+$r=New-TestRuntime @('S');$r.State.Graph=$null
+Request-ToolkitGraphScopes $r $tenant $account @('AuditLog.Read.All')
+Check 'absent Graph can be skipped without authentication' (@($r.State.Calls | Where-Object Kind -eq 'Connect').Count -eq 0)
+$r=New-TestRuntime
+Check 'nonbootstrap Graph auth requires a confirmed context' (Rejects {Connect-ToolkitDevice $r Graph -Scopes @('AuditLog.Read.All')})
+Check 'missing verified context makes no additional Graph auth call' (@($r.State.Calls | Where-Object Kind -eq 'Connect').Count -eq 0)
 # Full menu and logs use real local collectors with only synthetic data/transports.
 $r=New-TestRuntime @('L','alex@contoso.example','7','Y','N','N','N','Q')
 $history=Invoke-M365Terminal -Mode Synthetic -Runtime $r
 Check 'synthetic logs through complete menu produces triage' (@($r.State.Output | Where-Object {$_ -match '^MAILBOX: alex@contoso.example$'}).Count -eq 1)
 Check 'synthetic menu never touches auth/provider sessions' ($r.State.Calls.Count -eq 0)
 Check 'synthetic no-export produces no case path' ($null -eq $history[0][0].CasePath)
-$r=New-TestRuntime @($tenant.ToString(),$account,'R','L','alex@contoso.example,bob@contoso.example','1','Y','N','N','N','Q')
+$r=New-TestRuntime @('R','E','Y','L','alex@contoso.example,bob@contoso.example','1','Y','N','N','N','Q')
 $history=Invoke-M365Terminal -Mode Live -Runtime $r
 $reads=@($r.State.Calls | Where-Object Kind -eq 'Read')
 Check 'mocked live menu triages two exact mailboxes' (@($r.State.Output | Where-Object {$_ -like 'MAILBOX:*'}).Count -eq 2)
 Check 'multiple mailboxes remain exact separate queries' (@($reads | Where-Object Command -eq 'Get-Mailbox').Count -eq 2 -and @($reads | Where-Object {$_.Command -eq 'Get-Mailbox' -and $_.Parameters.Identity -notin @('alex@contoso.example','bob@contoso.example')}).Count -eq 0)
 Check 'mailbox menu never requests broad audit' (@($reads | Where-Object {$_.Command -in @('Get-AcceptedDomain','Search-UnifiedAuditLog') -or [string](Get-ToolkitValue $_.Parameters 'Uri') -match '/directoryAudits|/v1.0/oauth2PermissionGrants'}).Count -eq 0)
 Check 'reused sufficient sessions require no reconnect' (@($r.State.Calls | Where-Object Kind -eq 'Connect').Count -eq 0)
+$r=New-TestRuntime @('R','E','Y','L','alex@contoso.example','1','Y','N','N','N','S','Q');$r.State.Graph=$null
+$history=Invoke-M365Terminal -Mode Live -Runtime $r
+Check 'Exchange-only selected mailbox runs with explicit Graph gaps' (@($r.State.Output | Where-Object {$_ -like 'MAILBOX:*'}).Count -eq 1 -and @($r.State.Calls | Where-Object Kind -eq 'Connect').Count -eq 0)
+Check 'Exchange-only path makes no Graph provider request' (@($r.State.Calls | Where-Object {$_.Kind -eq 'Read' -and $_.Command -eq 'Invoke-MgGraphRequest'}).Count -eq 0)
 $r=New-TestRuntime @('L','alex@contoso.example','7','N','Q');$null=Invoke-M365Terminal -Mode Synthetic -Runtime $r
 Check 'mailbox cancellation does not collect' (@($r.State.Output | Where-Object {$_ -like 'MAILBOX:*'}).Count -eq 0 -and $r.State.Calls.Count -eq 0)
 if(Test-Path "$root/Audit/M365SecurityAudit.psm1"){
+ Import-Module "$root/Audit/M365SecurityAudit.psm1" -DisableNameChecking
+ foreach($exchangeState in @('absent','wrong-tenant')){
+  $r=New-TestRuntime @('R','G','Y','A',('AUDIT '+$tenant),'Y','N','S','Q')
+  $r.State.Graph.Scopes=@((Get-M365OrganizationAuditPlan).GraphReadPermissions)
+  if($exchangeState -eq 'absent'){$r.State.Exchange=@()}else{$r.State.Exchange[0].TenantID='99999999-2222-3333-4444-555555555555'}
+  $auditState=$r.State
+  $r.AuditRun={param($p)
+   $auditState.Calls.Add(@{Kind='Audit';Parameters=$p.Clone()})
+   # Real collector in synthetic mode only; no SDK or tenant calls even on a connected host.
+   $synthetic=$p.Clone();$synthetic.Mode='Synthetic';Invoke-M365OrganizationAudit @synthetic
+  }.GetNewClosure()
+  $history=Invoke-M365Terminal -Mode Live -Runtime $r
+  $auditCalls=@($r.State.Calls | Where-Object Kind -eq 'Audit')
+  Check "Graph-primary audit completes with $exchangeState Exchange" ($history.Count -eq 1 -and $history[0].SelectedCount -eq 46 -and $auditCalls.Count -eq 1)
+  Check "Graph-only audit preserves resolved tenant and scope gates $exchangeState" ($auditCalls[0].Parameters.TenantId -eq $tenant -and $auditCalls[0].Parameters.ExpectedAccount -eq $account -and $auditCalls[0].Parameters.ConfirmedTenantId -eq $tenant -and $auditCalls[0].Parameters.ConfirmOrganizationWide)
+  Check "Graph-only audit does not force component sign-in or tenant reads $exchangeState" (@($r.State.Calls | Where-Object {$_.Kind -in @('Connect','Read')}).Count -eq 0)
+ }
  $r=New-TestRuntime @('A','wrong','Q');$null=Invoke-M365Terminal -Mode Synthetic -Runtime $r
  Check 'audit tenant confirmation cancellation safe' (@($r.State.Output | Where-Object {$_ -like 'Audit canceled*'}).Count -eq 1 -and $r.State.Calls.Count -eq 0)
  $r=New-TestRuntime @('A',('AUDIT '+$tenant),'N','Q');$null=Invoke-M365Terminal -Mode Synthetic -Runtime $r

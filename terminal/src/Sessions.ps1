@@ -24,35 +24,57 @@ function New-ToolkitRuntime {
         & $cmd @parameters -ErrorAction Stop
       }}
 }
+function Resolve-ToolkitGraphContext {
+    param([hashtable]$Runtime)
+    $context=& $Runtime.Local 'Get-MgContext' @{}
+    if(-not $context){throw 'No Graph session. Use approved Microsoft device-code sign-in or reuse a connected session.'}
+    if((Get-ToolkitValue $context 'AuthType') -ne 'Delegated' -or (Get-ToolkitValue $context 'Environment') -ne 'Global'){throw 'This workflow requires a delegated operator session in Microsoft Global cloud.'}
+    $tenant=[guid]::Empty;$account=[string](Get-ToolkitValue $context 'Account' '')
+    if(-not [guid]::TryParse([string](Get-ToolkitValue $context 'TenantId' ''),[ref]$tenant) -or $tenant -eq [guid]::Empty -or -not (Test-ToolkitAddress $account)){
+        throw 'Graph did not return a reliable authenticated TenantId and operator account. No collection allowed. Reconnect with an approved Microsoft.Graph.Authentication module and inspect Get-MgContext; do not substitute a manually guessed tenant.'
+    }
+    return [pscustomobject]@{Service='Graph';TenantId=$tenant;Account=$account;Context=$context}
+}
 function Assert-ToolkitGraphSession {
     param([hashtable]$Runtime,[guid]$TenantId,[string]$Account)
-    $context=& $Runtime.Local 'Get-MgContext' @{}
-    if(-not $context){throw 'No Graph session. Sign in using approved device-code authentication.'}
-    if([string](Get-ToolkitValue $context 'TenantId') -ine $TenantId.ToString()){throw 'Graph tenant mismatch; no collection allowed.'}
-    if([string](Get-ToolkitValue $context 'Account') -ine $Account){throw 'Graph operator account mismatch; no collection allowed.'}
-    if((Get-ToolkitValue $context 'AuthType') -ne 'Delegated' -or (Get-ToolkitValue $context 'Environment') -ne 'Global'){throw 'This workflow requires a delegated operator session in Microsoft Global cloud.'}
-    return $context
+    $resolved=Resolve-ToolkitGraphContext $Runtime
+    if($resolved.TenantId -ne $TenantId){throw 'Graph tenant mismatch; no collection allowed.'}
+    if($resolved.Account -ine $Account){throw 'Graph operator account mismatch; no collection allowed.'}
+    return $resolved.Context
 }
-function Assert-ToolkitExchangeSession {
-    param([hashtable]$Runtime,[guid]$TenantId,[string]$Account,[switch]$Purview)
+function Resolve-ToolkitExchangeContext {
+    param([hashtable]$Runtime,[switch]$Purview)
     $connections=@(& $Runtime.Local 'Get-ConnectionInformation' @{})
     $active=@($connections | Where-Object {(Get-ToolkitValue $_ 'State') -eq 'Connected' -and [bool](Get-ToolkitValue $_ 'IsEopSession' $false) -eq [bool]$Purview})
     if($active.Count -ne 1){throw 'Exactly one active REST session for the selected workload is required; missing/ambiguous connections refused.'}
     $connection=$active[0]
-    if([string](Get-ToolkitValue $connection 'TenantID') -ine $TenantId.ToString() -or [string](Get-ToolkitValue $connection 'UserPrincipalName') -ine $Account){throw 'Exchange/Purview tenant or operator account mismatch; no collection allowed.'}
     if((Get-ToolkitValue $connection 'DelegatedOrganization') -or (Get-ToolkitValue $connection 'ModulePrefix') -or (Get-ToolkitValue $connection 'TokenStatus') -ne 'Active'){throw 'Require an active unprefixed, non-delegated REST session; no collection allowed.'}
     $certificate=Get-ToolkitValue $connection 'CertificateAuthentication'
     if($null -eq $certificate -or [bool]$certificate){throw 'This workflow requires documented delegated-user authentication, not a certificate/app-only or unknown session.'}
     $uri=[uri](Get-ToolkitValue $connection 'ConnectionUri' '')
     $allowedHost=if($Purview){'ps.compliance.protection.outlook.com'}else{'outlook.office365.com'}
     if(-not $uri.IsAbsoluteUri -or $uri.Scheme -ne 'https' -or $uri.Host -ine $allowedHost -or $uri.Port -ne 443){throw 'Unsupported Exchange service endpoint; Microsoft Global cloud only.'}
-    return $connection
+    $tenant=[guid]::Empty
+    $account=[string](Get-ToolkitValue $connection 'UserPrincipalName' '')
+    if(-not [guid]::TryParse([string](Get-ToolkitValue $connection 'TenantID' ''),[ref]$tenant) -or $tenant -eq [guid]::Empty -or -not (Test-ToolkitAddress $account)){
+        throw 'Exchange did not return a reliable TenantID GUID and operator UPN. No collection allowed. Use an approved current ExchangeOnlineManagement module in a clean PowerShell 7 session, reconnect with -Device, and inspect Get-ConnectionInformation. Do not substitute a manually guessed tenant.'
+    }
+    # Organization is documented as the CBA/managed-identity input, not a delegated tenant name.
+    # The authenticated TenantID is authoritative; do not infer organization from the UPN suffix.
+    return [pscustomobject]@{Service='Exchange';TenantId=$tenant;Account=$account;Connection=$connection}
+}
+function Assert-ToolkitExchangeSession {
+    param([hashtable]$Runtime,[guid]$TenantId,[string]$Account,[switch]$Purview)
+    $resolved=Resolve-ToolkitExchangeContext $Runtime -Purview:$Purview
+    if($resolved.TenantId -ne $TenantId -or $resolved.Account -ine $Account){throw 'Exchange/Purview tenant or operator account mismatch; no collection allowed.'}
+    return $resolved.Connection
 }
 function Connect-ToolkitDevice {
-    param([hashtable]$Runtime,[ValidateSet('Graph','Exchange')][string]$Service,[guid]$TenantId,[string]$Account,[string[]]$Scopes=@())
+    param([hashtable]$Runtime,[ValidateSet('Graph','Exchange')][string]$Service,[guid]$TenantId=[guid]::Empty,[string]$Account,[string[]]$Scopes=@())
     Write-ToolkitText $Runtime 'Microsoft will show a device code and approval URL. Complete MFA on an approved device/browser. No browser is launched by this app. Never enter a password here.'
     Write-ToolkitText $Runtime 'Use only already-approved access. If new consent or a Conditional Access block appears, stop. No grants, policy changes or fallback are performed.'
     if($Service -eq 'Graph'){
+        if($TenantId -eq [guid]::Empty -or -not (Test-ToolkitAddress $Account)){throw 'Graph connection requires the confirmed tenant and operator account.'}
         $allowed=@('User.Read','AuditLog.Read.All','Directory.Read.All','IdentityRiskEvent.Read.All','Policy.Read.ConditionalAccess','ThreatHunting.Read.All','Policy.Read.All','Policy.Read.AuthenticationMethod','Policy.Read.PermissionGrant','RoleManagement.Read.Directory','RoleEligibilitySchedule.Read.Directory','Domain.Read.All','LicenseAssignment.Read.All','DeviceManagementConfiguration.Read.All')
         if(-not $Scopes.Count -or @($Scopes | Where-Object {$_ -cnotin $allowed}).Count){throw 'Only explicit supported read scopes can be requested.'}
         & $Runtime.Connect 'Graph' @{UseDeviceCode=$true;ContextScope='Process';TenantId=$TenantId.ToString();Scopes=$Scopes}
@@ -60,18 +82,38 @@ function Connect-ToolkitDevice {
     }else{
         # -UserPrincipalName is not used as proof of identity; verify the returned REST session.
         & $Runtime.Connect 'Exchange' @{Device=$true}
-        $null=Assert-ToolkitExchangeSession $Runtime $TenantId $Account
+        $resolved=Resolve-ToolkitExchangeContext $Runtime
+        if(($TenantId -ne [guid]::Empty -and $resolved.TenantId -ne $TenantId) -or ($Account -and $resolved.Account -ine $Account)){throw 'Exchange sign-in returned a different tenant or account; no collection allowed.'}
+        return $resolved
     }
+}
+function Connect-ToolkitInitialSession {
+    param([hashtable]$Runtime,[ValidateSet('Graph','Exchange')][string]$Service)
+    if($Service -eq 'Exchange'){return Connect-ToolkitDevice $Runtime Exchange}
+    Write-ToolkitText $Runtime 'Microsoft will show a device code and approval URL. Complete sign-in/MFA on an approved Microsoft page using a browser/device. No browser is launched and no password is collected here.'
+    Write-ToolkitText $Runtime 'Initial Graph sign-in uses only User.Read. If new consent or Conditional Access blocks access, stop; no grant or fallback is performed.'
+    # TenantId is optional in this documented delegated parameter set. The authenticated
+    # context, not an operator-entered GUID or inferred email domain, supplies the tenant.
+    & $Runtime.Connect 'Graph' @{UseDeviceCode=$true;ContextScope='Process';Scopes=@('User.Read')}
+    return Resolve-ToolkitGraphContext $Runtime
+}
+function Assert-ToolkitPrimarySession {
+    param([hashtable]$Runtime,[guid]$TenantId,[string]$Account,[ValidateSet('Graph','Exchange')][string]$Service)
+    if($Service -eq 'Graph'){$null=Assert-ToolkitGraphSession $Runtime $TenantId $Account}
+    else{$null=Assert-ToolkitExchangeSession $Runtime $TenantId $Account}
 }
 function Request-ToolkitGraphScopes {
     param([hashtable]$Runtime,[guid]$TenantId,[string]$Account,[string[]]$Scopes)
-    $context=Assert-ToolkitGraphSession $Runtime $TenantId $Account
-    $current=@(Get-ToolkitValue $context 'Scopes' @())
+    $context=$null
+    try{$context=Assert-ToolkitGraphSession $Runtime $TenantId $Account}catch{
+        Write-ToolkitText $Runtime 'No verified Graph session matching the confirmed tenant and operator. Graph sources remain unavailable unless you explicitly sign in below.'
+    }
+    $current=if($context){@(Get-ToolkitValue $context 'Scopes' @())}else{@()}
     $missing=@($Scopes | Where-Object {$_ -notin $current})
-    if(-not $missing.Count){return}
-    Write-ToolkitText $Runtime ('Action-specific read scopes absent: '+($missing -join ', '))
-    $answer=Read-ToolkitInput $Runtime 'D = device sign-in for these already-approved read scopes; S = skip sources lacking access [S]'
-    if($answer -ieq 'D'){Connect-ToolkitDevice $Runtime Graph $TenantId $Account -Scopes (@('User.Read')+$Scopes | Sort-Object -Unique)}
+    if($context -and -not $missing.Count){return}
+    Write-ToolkitText $Runtime ('Action-specific Graph read scopes needed: '+($missing -join ', '))
+    $answer=Read-ToolkitInput $Runtime 'D = Graph device sign-in for these already-approved read scopes; S = skip unavailable Graph sources [S]'
+    if($answer -ieq 'D'){$null=Connect-ToolkitDevice $Runtime Graph $TenantId $Account -Scopes ($Scopes | Sort-Object -Unique)}
     elseif($answer -and $answer -ine 'S'){throw 'Unknown scope choice; no collection started.'}
 }
 function Request-ToolkitExchangeSession {
@@ -80,7 +122,7 @@ function Request-ToolkitExchangeSession {
         Write-ToolkitText $Runtime 'No acceptable matching Exchange session. Reuse requires one active, same-account/same-tenant Microsoft Global REST session.'
     }
     $answer=Read-ToolkitInput $Runtime 'D = approved Exchange device-code sign-in; S = skip Exchange sources [S]'
-    if($answer -ieq 'D'){Connect-ToolkitDevice $Runtime Exchange $TenantId $Account}
+    if($answer -ieq 'D'){$null=Connect-ToolkitDevice $Runtime Exchange $TenantId $Account}
     elseif($answer -and $answer -ine 'S'){throw 'Unknown Exchange choice; no collection started.'}
 }
 function New-ToolkitMailboxTransport {

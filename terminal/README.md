@@ -4,7 +4,7 @@
 
 A read-only terminal workflow for an approved Microsoft 365 operator:
 
-1. Identify the tenant and operator; sign in using Microsoft's device-code flow, or reuse a verified session.
+1. Sign in with Microsoft Graph (default) or Exchange using device code, or reuse a verified session. Confirm the account and tenant returned by Microsoft; no tenant GUID is requested up front.
 2. Choose **Audit** or **Pull Logs**.
 3. Review coverage, findings and collected records in the terminal. Saving local JSON/CSV evidence is optional.
 
@@ -29,7 +29,9 @@ The app imports installed modules when connecting but never installs or updates 
 
 **The app stays in the terminal, but Microsoft device-code sign-in requires you to approve a code on a Microsoft web page using an approved browser/device.** No local browser is launched and no loopback callback is used. A fully browser-free delegated MFA login cannot be promised. Never type your password into the app.
 
-At launch, enter the exact tenant GUID and operator UPN. `D` uses official device code; `R` reuses a matching delegated Graph session. The initial Graph request is only `User.Read`. Additional read scopes are considered **after** you choose and confirm an action. Existing sufficient sessions are reused. Missing scopes default to skipping those sources; `D` explicitly reconnects for the action's already-approved read scopes.
+The first prompt offers `G` (default) for Microsoft Graph device sign-in, `E` for Exchange Online device sign-in, or `R` to reuse either existing session. There is **no tenant GUID or UPN entry before sign-in**. Initial Graph sign-in requests only `User.Read`; Exchange uses only the documented `-Device` switch. The authenticated session supplies the tenant GUID and account for your confirmation before the action menu. If reliable metadata is missing, the app stops rather than guessing from an email domain or accepting an unverified GUID.
+
+Additional components and read scopes are considered **after** you choose and confirm an action. They must match the confirmed tenant and operator. Graph-only audits do not require Exchange, and Exchange-only mailbox collection can skip Graph. Existing sufficient sessions are reused. Missing components/scopes default to explicit coverage gaps; `D` explicitly signs in for the component's already-approved access. Purview can only reuse an approved matching session. The app does not claim all 46 audit sources were collected merely because they were selected.
 
 If Microsoft shows a **new consent request** or Conditional Access blocks device code, stop and follow your administrator's approval process. The app cannot suppress every provider consent screen, and it never approves one. There is no browser/password fallback, grant API, role activation, app registration or policy workaround.
 

@@ -21,13 +21,19 @@ The new application is additive under `terminal/`. Existing root PowerShell file
 | Area | Terminal entrypoint | Legacy root entrypoint |
 |---|---|---|
 | Workflow | Sign-in/reuse prompt, then Audit or Pull Logs | Direct fixture/live mailbox investigation |
-| Authentication | Explicit official device-code option; verified existing sessions; tenant/account checks; permissions deferred by action | Operator establishes sessions separately |
+| Authentication | Graph or Exchange device sign-in/reuse first; authenticated tenant/account confirmation; permissions deferred by action | Operator establishes sessions separately |
 | Interface | Terminal summaries and paginated in-memory source viewer | Local static HTML case report |
 | Files | Optional JSON/CSV evidence and hashes | Case files including HTML always written |
 | Mailbox scope | Exact selected mailboxes only; no tenant-wide log fallback | May collect tenant-wide UAL/directory-audit pages for local target matching |
 | Organization audit | Separate explicit tenant and organization-scope confirmations; 46 supported configuration sources | Not a comprehensive policy inventory |
 
 Mailbox scope is a request boundary, not a reduction in existing token privileges. Skipping broad audit sources loses potentially relevant delegate/admin evidence. A result with gaps is not an exhaustive BEC investigation or a clean bill of health.
+
+## Sign in first, confirm the resolved organization
+
+The first prompt is `G` (default Graph device sign-in), `E` (Exchange device sign-in), or `R` (reuse either provider). There is no manual tenant GUID prompt before authentication. Initial Graph sign-in requests only `User.Read`. `Get-MgContext` or Exchange `Get-ConnectionInformation.TenantID` supplies the authenticated tenant and account for confirmation. Missing, ambiguous or unreliable identity metadata stops the workflow; the app does not infer tenant identity from an email suffix.
+
+The confirmed context binds every later component. Full audit displays Graph, Exchange and Purview requirements. Missing or mismatched components are independent coverage gaps: Graph-only audits need no Exchange connection. Additional Graph device sign-in is pinned to the confirmed tenant, and the returned account must match. Exchange device sign-in is checked after it returns. Purview uses a preconnected matching session only. Organization-wide audit still requires the typed `AUDIT <resolved-tenant-guid>` confirmation and a separate authorization answer before collection.
 
 ## Authentication is not browser-free MFA
 

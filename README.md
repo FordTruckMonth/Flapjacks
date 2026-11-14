@@ -13,7 +13,7 @@ The new **[PowerShell-only terminal application](terminal/README.md)** combines 
 ./terminal/Start-M365Toolkit.ps1 -Mode Synthetic
 ```
 
-Live startup asks for the tenant and operator, then offers official device-code sign-in or a verified existing session. **Device-code approval still requires a Microsoft web page on an approved browser/device**; the application itself stays in the terminal and never asks for a password. It does not approve consent or bypass Conditional Access. Action-specific read scopes are deferred until the chosen action is confirmed.
+Live startup offers Microsoft Graph device sign-in (default), Exchange device sign-in, or reuse of either session. It derives the tenant and operator from authenticated metadata for confirmation; no tenant GUID is requested up front. **Device-code approval still requires a Microsoft web page on an approved browser/device**; the application itself stays in the terminal and never asks for a password. It does not approve consent or bypass Conditional Access. Action-specific read scopes are deferred until the chosen action is confirmed.
 
 - **Audit:** typed tenant confirmation plus explicit organization-wide authorization; 46 supported configuration sources. Gaps remain visible, not a security grade.
 - **Pull Logs:** up to 50 exact usernames/emails, explicit dates and target confirmation, per-mailbox queries only. No tenant-wide UAL/directory-audit fallback, message bodies or attachments.

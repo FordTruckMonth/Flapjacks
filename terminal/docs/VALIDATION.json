@@ -2,7 +2,7 @@
   "Passed": true,
   "PowerShell": "7.7.0",
   "NativeParser": "Passed",
-  "ToolkitChecks": 82,
+  "ToolkitChecks": 125,
   "LogsChecks": 37,
   "OriginalHelperScenarios": 9,
   "OriginalHelperAssertions": 21,
@@ -13,5 +13,6 @@
   "Authentication": "Mocks only",
   "ActualCliSyntheticLogs": "Passed, exit 0; terminal source viewer checked",
   "ActualCliSyntheticAudit": "Passed, exit 0; terminal source viewer checked",
-  "OptionalJsonCsvExports": "Passed, exit 0 for Logs and Audit; no HTML/JS files"
+  "OptionalJsonCsvExports": "Passed, exit 0 for Logs and Audit; no HTML/JS files",
+  "ProviderFirstStartup": "Passed: default Graph User.Read, optional Exchange/reuse, authenticated tenant/account confirmation, mismatch/ambiguity/cancellation and Graph-only audit mocks"
 }

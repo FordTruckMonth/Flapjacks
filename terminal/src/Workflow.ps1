@@ -13,11 +13,12 @@ function Get-ToolkitEvidenceRoot {
     return $path
 }
 function Invoke-ToolkitAuditWorkflow {
-    param([hashtable]$Runtime,[ValidateSet('Live','Synthetic')][string]$Mode,[guid]$TenantId,[string]$Account)
+    param([hashtable]$Runtime,[ValidateSet('Live','Synthetic')][string]$Mode,[guid]$TenantId,[string]$Account,[ValidateSet('Graph','Exchange')][string]$PrimaryService='Graph')
     Import-Module (Join-Path $script:ToolkitRoot 'Audit/M365SecurityAudit.psm1') -DisableNameChecking
     $plan=Get-M365OrganizationAuditPlan
     Write-ToolkitText $Runtime 'AUDIT: organization-wide CURRENT configuration, not mailbox logs. All 46 supported policy/configuration sources are selected; this is not every M365 setting or a compliance certification.'
     Write-ToolkitText $Runtime ('Tenant: '+$TenantId+' | Operator: '+(ConvertTo-ToolkitText $Account))
+    Write-ToolkitText $Runtime 'Component sessions: Graph for identity/configuration reads; Exchange for messaging policies; Purview requires an existing approved matching session. Missing components remain independent coverage gaps.'
     Write-ToolkitText $Runtime 'Includes Conditional Access, identity/consent policies, roles, limited Intune metadata, Exchange protection and selected Purview settings. No writes or content collection. Missing privileges/licensing remain explicit gaps.'
     $confirm=Read-ToolkitInput $Runtime ('Type AUDIT '+$TenantId+' to confirm this exact tenant')
     if($confirm -cne ('AUDIT '+$TenantId)){Write-ToolkitText $Runtime 'Audit canceled before authentication changes, queries or file creation.';return}
@@ -28,17 +29,18 @@ function Invoke-ToolkitAuditWorkflow {
         Request-ToolkitGraphScopes $Runtime $TenantId $Account -Scopes @($plan.GraphReadPermissions)
         Request-ToolkitExchangeSession $Runtime $TenantId $Account
         Write-ToolkitText $Runtime 'Purview uses an existing same-account/same-tenant session only. No documented device-code switch is available; unavailable Purview sources are skipped.'
-        $null=Assert-ToolkitGraphSession $Runtime $TenantId $Account
+        Assert-ToolkitPrimarySession $Runtime $TenantId $Account $PrimaryService
     }
     $parameters=@{Mode=$Mode;TenantId=$TenantId;ExpectedAccount=$Account;ConfirmedTenantId=$TenantId;ConfirmOrganizationWide=$true}
     if($output){$parameters.OutputPath=$output}
-    $result=Invoke-M365OrganizationAudit @parameters
+    # Injectable adapter seam is used only by offline tests; the standard runtime has none.
+    $result=if($Runtime.ContainsKey('AuditRun')){& $Runtime.AuditRun $parameters}else{Invoke-M365OrganizationAudit @parameters}
     # Summary is generated locally from safe metadata, never raw terminal control sequences.
     Write-M365AuditSummary -Result $result
     return $result
 }
 function Invoke-ToolkitLogsWorkflow {
-    param([hashtable]$Runtime,[ValidateSet('Live','Synthetic')][string]$Mode,[guid]$TenantId,[string]$Account)
+    param([hashtable]$Runtime,[ValidateSet('Live','Synthetic')][string]$Mode,[guid]$TenantId,[string]$Account,[ValidateSet('Graph','Exchange')][string]$PrimaryService='Graph')
     Import-Module (Join-Path $script:ToolkitRoot 'Logs/M365Bec.psm1') -DisableNameChecking
     Write-ToolkitText $Runtime 'PULL LOGS: exact selected mailboxes only. No tenant-wide UAL/directory audit/grant inventory, message bodies or attachments. Delegate/admin activity may therefore be missing.'
     if($Mode -eq 'Synthetic'){Write-ToolkitText $Runtime 'Synthetic demo identity: alex@contoso.example. No account is contacted.'}
@@ -69,7 +71,7 @@ function Invoke-ToolkitLogsWorkflow {
         if($defender){$scopes+='ThreatHunting.Read.All'}
         Request-ToolkitGraphScopes $Runtime $TenantId $Account -Scopes $scopes
         Request-ToolkitExchangeSession $Runtime $TenantId $Account
-        $null=Assert-ToolkitGraphSession $Runtime $TenantId $Account
+        Assert-ToolkitPrimarySession $Runtime $TenantId $Account $PrimaryService
     }
     $results=[Collections.Generic.List[object]]::new()
     foreach($target in $targets){
@@ -100,30 +102,36 @@ function Invoke-M365Terminal {
     Write-ToolkitText $Runtime 'Admin means an approved operator with scoped READ roles, not a request for Global Administrator. No automatic consent, escalation, remediation or external uploads.'
     Write-ToolkitText $Runtime 'Official device-code authentication still requires approval on a Microsoft web page using an approved browser/device. Tenant policy can block it; this app will not bypass that restriction.'
     if($Mode -eq 'Synthetic'){
-        $tenant=[guid]'11111111-2222-3333-4444-555555555555';$account='operator@contoso.example'
+        $tenant=[guid]'11111111-2222-3333-4444-555555555555';$account='operator@contoso.example';$primary='Graph'
         Write-ToolkitText $Runtime 'SYNTHETIC MODE: no real sign-in, tenant or mailbox. Authentication and providers are not exercised.'
     }else{
-        $tenantText=Read-ToolkitInput $Runtime 'Tenant ID (exact GUID)'
-        $tenant=[guid]::Empty
-        if(-not [guid]::TryParse($tenantText,[ref]$tenant) -or $tenant -eq [guid]::Empty){throw 'A non-empty exact tenant GUID is required.'}
-        $account=(Read-ToolkitInput $Runtime 'Admin/operator account UPN (exact email; no password)').Trim()
-        if(-not (Test-ToolkitAddress $account)){throw 'A valid exact operator UPN is required.'}
-        $choice=Read-ToolkitInput $Runtime 'D = sign in with device code; R = reuse matching delegated session; Q = quit [D]'
+        $choice=Read-ToolkitInput $Runtime 'G = Microsoft Graph device sign-in; E = Exchange Online device sign-in; R = reuse an existing session; Q = quit [G]'
         if($choice -ieq 'Q'){return}
-        if(-not $choice -or $choice -ieq 'D'){Connect-ToolkitDevice $Runtime Graph $tenant $account -Scopes @('User.Read')}
-        elseif($choice -ieq 'R'){$null=Assert-ToolkitGraphSession $Runtime $tenant $account}
-        else{throw 'Unknown sign-in choice.'}
-        Write-ToolkitText $Runtime ('Verified Graph tenant '+$tenant+' and operator '+(ConvertTo-ToolkitText $account)+'. Action-specific read permissions are deferred until you select an action.')
+        if(-not $choice -or $choice -ieq 'G'){$resolved=Connect-ToolkitInitialSession $Runtime Graph}
+        elseif($choice -ieq 'E'){$resolved=Connect-ToolkitInitialSession $Runtime Exchange}
+        elseif($choice -ieq 'R'){
+            $provider=Read-ToolkitInput $Runtime 'Reuse G = Graph or E = Exchange session [G]'
+            if(-not $provider -or $provider -ieq 'G'){$resolved=Resolve-ToolkitGraphContext $Runtime}
+            elseif($provider -ieq 'E'){$resolved=Resolve-ToolkitExchangeContext $Runtime}
+            else{throw 'Unknown session provider.'}
+        }else{throw 'Unknown sign-in choice.'}
+        $tenant=$resolved.TenantId;$account=$resolved.Account;$primary=$resolved.Service
+        Write-ToolkitText $Runtime ('Authenticated '+$primary+' operator: '+(ConvertTo-ToolkitText $account))
+        Write-ToolkitText $Runtime ('Organization / tenant ID verified by '+$primary+': '+$tenant)
+        Write-ToolkitText $Runtime 'This context comes from the authenticated Microsoft session, not a typed tenant ID or inferred email domain. Every additional component must match this tenant and account. Action-specific permissions are deferred.'
+        $confirm=Read-ToolkitInput $Runtime 'Use this resolved account and organization? Y/N [N]'
+        if($confirm -ine 'Y'){Write-ToolkitText $Runtime 'Canceled before the action menu, additional sign-in, collection or evidence writes.';return}
+        Assert-ToolkitPrimarySession $Runtime $tenant $account $primary
     }
     $history=[Collections.Generic.List[object]]::new()
     while($true){
         $action=Read-ToolkitInput $Runtime 'A = Audit organization configuration; L = Pull Logs; V = view latest in-memory result; Q = quit'
         if($action -ieq 'Q' -or -not $action){break}
         try{
-            if($Mode -eq 'Live' -and $action -in @('A','L')){$null=Assert-ToolkitGraphSession $Runtime $tenant $account}
+            if($Mode -eq 'Live' -and $action -in @('A','L')){Assert-ToolkitPrimarySession $Runtime $tenant $account $primary}
             switch($action.ToUpperInvariant()){
-                'A' {$result=Invoke-ToolkitAuditWorkflow $Runtime $Mode $tenant $account;if($null -ne $result){$history.Add($result)}}
-                'L' {$result=Invoke-ToolkitLogsWorkflow $Runtime $Mode $tenant $account;if($null -ne $result){$history.Add($result)}}
+                'A' {$result=Invoke-ToolkitAuditWorkflow $Runtime $Mode $tenant $account -PrimaryService $primary;if($null -ne $result){$history.Add($result)}}
+                'L' {$result=Invoke-ToolkitLogsWorkflow $Runtime $Mode $tenant $account -PrimaryService $primary;if($null -ne $result){$history.Add($result)}}
                 'V' {if($history.Count){Show-ToolkitResult $history[$history.Count-1] $Runtime}else{Write-ToolkitText $Runtime 'No in-memory result to inspect.'}}
                 default {Write-ToolkitText $Runtime 'Choose A, L, V or Q. No action performed.'}
             }
