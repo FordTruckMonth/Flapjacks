@@ -83,6 +83,8 @@ function Test-AuditContinuation([string]$Next, [string]$Initial) {
     } catch { return $false }
 }
 function Protect-AuditGraphItem($Source,$Item) {
+    if ($Source.Group -eq 'WorkbookIdentity') { return Protect-FlapjacksWorkbookIdentityItem -Source $Source -Item $Item }
+    if ($Source.Group -eq 'WorkbookCollaboration' -and $Source.Provider -eq 'Graph') { return Protect-FlapjacksWorkbookCollaborationItem -Source $Source -Item $Item }
     if ($Source.Group -ne 'Intune') { return $Item }
     # Intune policy objects can contain passwords or keys. Project again locally even when
     # the API is expected to honor $select; unexpected response fields never reach artifacts.
@@ -122,8 +124,24 @@ function Read-AuditGraphSource {
         $r.PageCount++
         if ($null -eq $page -or (Test-AuditProperty $page 'error')) { $r.Status='Partial'; $r.Reason='InvalidResponse'; break }
         if ($Source.Shape -eq 'Singleton') {
-            if ((Test-AuditProperty $page 'value') -or ($page -is [System.Collections.IDictionary] -and $page.Count -eq 0) -or @($page.PSObject.Properties).Count -eq 0) { $r.Status='Partial'; $r.Reason='InvalidSingletonResponse'; break }
-            $items.Add($page); $next=$null
+            # Microsoft documents the SharePoint settings singleton inside a value object.
+            # Permit that exact envelope for this source only, alongside an unwrapped object.
+            if ($Source.Id -ceq 'workbook-sharepoint-settings' -and (Test-AuditProperty $page 'value')) {
+                $outerNames=if($page -is [System.Collections.IDictionary]){@($page.Keys)}else{@($page.PSObject.Properties.Name)}
+                if (@($outerNames | Where-Object {$_ -cnotin @('value','@odata.context','@odata.type')}).Count) { $r.Status='Partial'; $r.Reason='InvalidSharePointSingletonEnvelope'; break }
+                $page=Get-AuditProperty $page 'value'
+            }
+            if ($null -eq $page -or $page -is [string] -or $page -is [ValueType] -or $page -is [array] -or
+                (Test-AuditProperty $page 'error') -or (Test-AuditProperty $page '@odata.nextLink') -or (Test-AuditProperty $page 'value') -or
+                ($page -is [System.Collections.IDictionary] -and $page.Count -eq 0) -or @($page.PSObject.Properties).Count -eq 0) {
+                $r.Status='Partial'; $r.Reason='InvalidSingletonResponse'; break
+            }
+            $projected=Protect-AuditGraphItem $Source $page
+            if ($Source.Id -ceq 'workbook-sharepoint-settings') {
+                $missing=@($Source.Fields | Where-Object { -not (Test-AuditProperty $projected $_) })
+                if($missing.Count){$r.Status='Partial';$r.Reason='SomeSelectedPropertiesUnavailable';$r.MissingFields=$missing}
+            }
+            $items.Add($projected); $next=$null
         } else {
             $values=Get-AuditProperty $page 'value'
             if (-not (Test-AuditProperty $page 'value') -or $null -eq $values -or
@@ -206,18 +224,26 @@ function ConvertTo-AuditCommandValue($Value) {
     return [string]$Value
 }
 function Read-AuditCommandSource {
-    param($Source,$Session,[int]$MaxRecords=50000)
+    param($Source,$Session,[int]$MaxRecords=50000,[switch]$IncludeWorkbookMailFields)
     $r=New-AuditResult $Source 'Collected'
-    $command=Get-Command -Name $Source.Target -CommandType Function,Cmdlet -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($null -eq $command) { $r.Status='Unavailable'; $r.Reason='Read cmdlet unavailable in the selected session; check RBAC and installed module.'; return $r }
-    # Bind the command to the validated session rather than any same-named command in the shell.
-    $sessionModule=[IO.Path]::GetFileName([string](Get-AuditProperty $Session.Connection 'ModuleName'))
-    $actualName=[string]$command.ModuleName
-    $actualPath=if ($null -ne $command.Module) { [string]$command.Module.Path } else { '' }
+    $eligible=@(Get-Command -Name $Source.Target -CommandType Function,Cmdlet -All -ErrorAction SilentlyContinue)
+    if ($eligible.Count -eq 0) { $r.Status='Unavailable'; $r.Reason='Read cmdlet unavailable in the selected session; check RBAC and installed module.'; return $r }
+    # The same Get-* name can be exposed by Exchange and Security & Compliance.
+    # Select exactly one command from the already-verified session, never the
+    # shell's precedence winner or a command from another workload.
     $expected=[string](Get-AuditProperty $Session.Connection 'ModuleName')
-    if (-not $expected -or (-not ($actualName -ceq $sessionModule) -and -not $actualPath.StartsWith($expected+[IO.Path]::DirectorySeparatorChar,[StringComparison]::Ordinal) -and -not ($actualPath -ceq $expected))) {
-        $r.Status='Unavailable'; $r.Reason='Cmdlet origin could not be bound to the validated REST session; refused.'; return $r
+    $sessionModule=[IO.Path]::GetFileName($expected)
+    $bound=@(foreach($candidate in $eligible) {
+        if(-not $expected -or $null -eq $candidate.Module){continue}
+        $actualPath=[string]$candidate.Module.Path
+        $pathBound=$actualPath -ceq $expected -or $actualPath.StartsWith($expected+[IO.Path]::DirectorySeparatorChar,[StringComparison]::Ordinal)
+        $nameBound=-not [IO.Path]::IsPathRooted($expected) -and [string]$candidate.ModuleName -ceq $sessionModule
+        if($pathBound -or $nameBound){$candidate}
+    })
+    if ($bound.Count -ne 1) {
+        $r.Status='Unavailable'; $r.Reason='Cmdlet origin could not be uniquely bound to the validated REST session; refused.'; return $r
     }
+    $command=$bound[0]
     $variants=@(@{})
     if ($Source.Target -eq 'Get-OutboundConnector') {
         $variants=@(
@@ -255,6 +281,13 @@ function Read-AuditCommandSource {
                 foreach ($field in $Source.Fields) {
                     if (Test-AuditProperty $row $field) { $selected[$field]=ConvertTo-AuditCommandValue (Get-AuditProperty $row $field) } else { [void]$missing.Add($field) }
                 }
+                if($IncludeWorkbookMailFields){
+                    foreach($field in (Get-AuditProperty $Source 'OptionalFields' @())){
+                        # These fields are additive projections from the already fetched policy.
+                        # Absence leaves the corresponding new control unknown, not older fields.
+                        if(Test-AuditProperty $row $field){$selected[$field]=ConvertTo-AuditCommandValue (Get-AuditProperty $row $field)}
+                    }
+                }
                 $items.Add([pscustomobject]$selected)
             }
             if ($commandWarnings.Count -gt 0) { $r.Status='Partial'; $r.Reason='CmdletReportedWarning; inspect the source directly in your approved administration session.' }
@@ -267,4 +300,13 @@ function Read-AuditCommandSource {
     $r.Items=$items.ToArray(); $r.Count=$items.Count; $r.MissingFields=@($missing | Sort-Object)
     if ($missing.Count -gt 0 -and $r.Status -eq 'Collected') { $r.Status='Partial'; $r.Reason='SomeSelectedPropertiesUnavailable; inspect MissingFields. Missing is not false.' }
     return $r
+}
+
+function Test-FlapjacksGraphScope($Source,$Session) {
+    $present=@((Get-AuditProperty $Session.Context 'Scopes' @()))
+    if (@($Source.Scopes | Where-Object { $_ -in $present }).Count -eq 0) { return $false }
+    foreach ($required in (Get-AuditProperty $Source 'RequiredScopes' @())) {
+        if ($required -notin $present) { return $false }
+    }
+    return $true
 }

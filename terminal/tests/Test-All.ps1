@@ -9,6 +9,19 @@ $parse=@(Get-ChildItem $root -Recurse -File | Where-Object {$_.Extension -in @('
 })
 if($parse.Count){throw 'Native parser errors'}
 $subtests=@(
+ @{Name='posture-export';Path="$root/tests/Test-PostureExport.ps1";Parameters=@{ResultsPath=(Join-Path $EvidenceRoot 'posture-export.json')}},
+ @{Name='posture-evaluator';Path="$root/Audit/tests/Test-Posture.ps1";Parameters=@{}},
+ @{Name='workbook-identity';Path="$root/Audit/tests/Test-WorkbookIdentity.ps1";Parameters=@{}},
+ @{Name='workbook-exchange';Path="$root/Audit/tests/Test-WorkbookExchange.ps1";Parameters=@{}},
+ @{Name='workbook-collaboration';Path="$root/Audit/tests/Test-WorkbookCollaboration.ps1";Parameters=@{}},
+ @{Name='workbook-gates';Path="$root/Audit/tests/Test-WorkbookGates.ps1";Parameters=@{}},
+ @{Name='workbook-formats';Path="$root/Audit/tests/Test-PostureWorkbookExport.ps1";Parameters=@{}},
+ @{Name='mail-antiphish';Path="$root/Audit/tests/Test-MailBaselineAntiphish.ps1";Parameters=@{}},
+ @{Name='mail-spam';Path="$root/Audit/tests/Test-MailBaselineSpam.ps1";Parameters=@{}},
+ @{Name='mail-protection';Path="$root/Audit/tests/Test-MailBaselineProtection.ps1";Parameters=@{}},
+ @{Name='mail-presentation';Path="$root/Audit/tests/Test-MailBaselinePresentation.ps1";Parameters=@{}},
+ @{Name='mail-gates';Path="$root/Audit/tests/Test-MailBaselineGates.ps1";Parameters=@{}},
+ @{Name='mail-additive-projection';Path="$root/Audit/tests/Test-MailBaselineOptionalProjection.ps1";Parameters=@{}},
  @{Name='authentication-display';Path="$root/tests/Test-AuthenticationDisplay.ps1";Parameters=@{ResultsPath=(Join-Path $EvidenceRoot 'authentication-display.json')}},
  @{Name='mailbox-snapshot';Path="$root/tests/Test-MailboxSnapshot.ps1";Parameters=@{ResultsPath=(Join-Path $EvidenceRoot 'mailbox-snapshot.json')}},
  @{Name='prerequisites';Path="$root/tests/Test-Prerequisites.ps1";Parameters=@{ResultsPath=(Join-Path $EvidenceRoot 'prerequisites.json')}},
@@ -33,6 +46,7 @@ $gateCount=[int]([regex]::Match($gates,'PASS: (\d+)').Groups[1].Value)
 if($auditCount -lt 150 -or $gateCount -lt 45){throw 'Could not confirm audit test counts'}
 $snapshot=Get-Content (Join-Path $EvidenceRoot 'mailbox-snapshot.json') -Raw | ConvertFrom-Json
 $authDisplay=Get-Content (Join-Path $EvidenceRoot 'authentication-display.json') -Raw | ConvertFrom-Json
-$summary=[pscustomobject]@{AuthenticationDisplayChecks=$authDisplay.Checks;MailboxSnapshotChecks=$snapshot.Checks;Passed=$true;PowerShell=$PSVersionTable.PSVersion.ToString();NativeParser='Passed';ToolkitChecks=$toolkit.Checks;PrerequisiteChecks=$prerequisites.PrerequisiteChecks;LogsChecks=$logs.LogsChecks;OriginalHelperScenarios=$logs.OriginalHelperScenarios;OriginalHelperAssertions=$logs.OriginalHelperAssertions;PagerCases=$logs.PagerCases;AuditAssertions=$auditCount;AuditTerminalGateAssertions=$gateCount;LiveTenantTested=$false;Authentication='Mocks only';EvidenceRoot=$EvidenceRoot}
+$postureExport=Get-Content (Join-Path $EvidenceRoot 'posture-export.json') -Raw | ConvertFrom-Json
+$summary=[pscustomobject]@{PostureExportChecks=$postureExport.Checks;AuthenticationDisplayChecks=$authDisplay.Checks;MailboxSnapshotChecks=$snapshot.Checks;Passed=$true;PowerShell=$PSVersionTable.PSVersion.ToString();NativeParser='Passed';ToolkitChecks=$toolkit.Checks;PrerequisiteChecks=$prerequisites.PrerequisiteChecks;LogsChecks=$logs.LogsChecks;OriginalHelperScenarios=$logs.OriginalHelperScenarios;OriginalHelperAssertions=$logs.OriginalHelperAssertions;PagerCases=$logs.PagerCases;AuditAssertions=$auditCount;AuditTerminalGateAssertions=$gateCount;LiveTenantTested=$false;Authentication='Mocks only';EvidenceRoot=$EvidenceRoot}
 $summary | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $EvidenceRoot 'summary.json')
 $summary
