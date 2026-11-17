@@ -4,7 +4,7 @@ function Get-M365OrganizationAuditPlan {
     $plan=Get-M365AuditPlan -Include Authentication,Consent,Administration,TenantInventory,Intune,Exchange,Purview
     $plan | Add-Member -NotePropertyName OrganizationScope -NotePropertyValue 'Organization-wide current configuration across all 46 supported sources; not every Microsoft 365 setting or effective policy evaluation.'
     $plan | Add-Member -NotePropertyName SensitiveReportNotice -NotePropertyValue 'Reports may include tenant policy targeting identities, addresses and infrastructure. Keep on approved local storage.'
-    $plan | Add-Member -NotePropertyName ConfirmationRequired -NotePropertyValue 'Confirm signed-in delegated account, repeat tenant GUID, and explicitly agree to organization-wide configuration collection. No tenant writes or log collection.'
+    $plan | Add-Member -NotePropertyName ConfirmationRequired -NotePropertyValue 'Verify signed-in delegated account and tenant binding, and explicitly authorize organization-wide configuration collection. Interactive Flapjacks uses one AUDIT confirmation; direct API callers must supply matching confirmed tenant ID. No tenant writes or log collection.'
     return $plan
 }
 function Invoke-M365OrganizationAudit {

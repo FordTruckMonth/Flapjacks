@@ -298,7 +298,8 @@
         "Identity": "Synthetic tenant",
         "OAuth2ClientProfileEnabled": true,
         "AuditDisabled": false,
-        "DefaultAuthenticationPolicy": "Synthetic block basic auth"
+        "DefaultAuthenticationPolicy": "Synthetic block basic auth",
+        "RejectDirectSend": false
       }
     ]
   },

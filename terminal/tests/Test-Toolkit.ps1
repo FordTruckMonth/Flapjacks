@@ -80,18 +80,18 @@ Check 'session changed mid-run refused' (Rejects {& $transport 'Get-Mailbox' @{I
 Check 'mid-run change prevented second provider call' (@($r.State.Calls | Where-Object Kind -eq 'Read').Count -eq 1)
 
 # Provider-first startup: authenticated metadata is the authority, never typed tenant/account.
-$r=New-TestRuntime @('','Y','Q');$null=Invoke-M365Terminal -Mode Live -Runtime $r
+$r=New-TestRuntime @('','Q');$null=Invoke-M365Terminal -Mode Live -Runtime $r
 $connect=@($r.State.Calls | Where-Object Kind -eq 'Connect')
-Check 'first prompt offers Microsoft sign-in and reuse without tenant entry' ($r.State.Prompts[0] -like 'G = Microsoft Graph device sign-in*' -and @($r.State.Prompts | Where-Object {$_ -eq 'Tenant ID (exact GUID)' -or $_ -like 'Admin/operator account UPN*'}).Count -eq 0)
+Check 'first prompt offers Microsoft sign-in and reuse without tenant entry' ($r.State.Prompts[0] -like 'G = Microsoft Graph identity-only device sign-in*' -and @($r.State.Prompts | Where-Object {$_ -eq 'Tenant ID (exact GUID)' -or $_ -like 'Admin/operator account UPN*'}).Count -eq 0)
 Check 'default Graph discovery uses documented device code without manual TenantId' ($connect.Count -eq 1 -and $connect[0].Service -eq 'Graph' -and $connect[0].Parameters.Count -eq 3 -and $connect[0].Parameters.UseDeviceCode -and $connect[0].Parameters.Scopes.Count -eq 1 -and $connect[0].Parameters.Scopes[0] -eq 'User.Read' -and -not $connect[0].Parameters.ContainsKey('TenantId'))
 Check 'Graph startup never requires Exchange' (@($r.State.Calls | Where-Object {$_.Kind -eq 'Local' -and $_.Command -eq 'Get-ConnectionInformation'}).Count -eq 0)
-Check 'authenticated tenant and account displayed before menu' (($r.State.Output -join ' ') -match [regex]::Escape($tenant.ToString()) -and ($r.State.Output -join ' ') -match [regex]::Escape($account) -and $r.State.Prompts[1] -eq 'Use this resolved account and organization? Y/N [N]')
-$r=New-TestRuntime @('E','Y','Q');$null=Invoke-M365Terminal -Mode Live -Runtime $r
+Check 'authenticated tenant and account displayed before menu' (($r.State.Output -join ' ') -match [regex]::Escape($tenant.ToString()) -and ($r.State.Output -join ' ') -match [regex]::Escape($account) -and $r.State.Prompts[1] -like 'A = Audit*')
+$r=New-TestRuntime @('E','Q');$null=Invoke-M365Terminal -Mode Live -Runtime $r
 $connect=@($r.State.Calls | Where-Object Kind -eq 'Connect')
 Check 'Exchange startup uses only documented Device parameter' ($connect.Count -eq 1 -and $connect[0].Service -eq 'Exchange' -and $connect[0].Parameters.Count -eq 1 -and $connect[0].Parameters.Device)
 Check 'Exchange startup never touches Graph before action selection' (@($r.State.Calls | Where-Object {$_.Kind -eq 'Local' -and $_.Command -eq 'Get-MgContext'}).Count -eq 0)
 foreach($provider in @('G','E')){
- $r=New-TestRuntime @('R',$provider,'Y','Q');$null=Invoke-M365Terminal -Mode Live -Runtime $r
+ $r=New-TestRuntime @('R',$provider,'Q');$null=Invoke-M365Terminal -Mode Live -Runtime $r
  Check "existing $provider reused without authentication" (@($r.State.Calls | Where-Object Kind -eq 'Connect').Count -eq 0)
 }
 $r=New-TestRuntime @('Q');$null=Invoke-M365Terminal -Mode Live -Runtime $r
@@ -101,8 +101,8 @@ foreach($provider in @('G','E')){
  Check "startup $provider CA denial propagates" (Rejects {Invoke-M365Terminal -Mode Live -Runtime $r})
  Check "startup $provider denial not retried or changed flow" (@($r.State.Calls | Where-Object Kind -eq 'Connect').Count -eq 1 -and $r.State.Prompts.Count -eq 1)
 }
-$r=New-TestRuntime @('R','G','N');$null=Invoke-M365Terminal -Mode Live -Runtime $r
-Check 'resolved context decline stops before menu and collection' ($r.State.Prompts.Count -eq 3 -and @($r.State.Calls | Where-Object {$_.Kind -in @('Connect','Read')}).Count -eq 0)
+$r=New-TestRuntime @('R','G','Q');$null=Invoke-M365Terminal -Mode Live -Runtime $r
+Check 'resolved context reaches menu without extra confirmation; quit does not collect' ($r.State.Prompts.Count -eq 3 -and @($r.State.Calls | Where-Object {$_.Kind -in @('Connect','Read')}).Count -eq 0)
 foreach($provider in @('G','E')){foreach($bad in @('','not-a-guid',[guid]::Empty.ToString())){
  $r=New-TestRuntime @('R',$provider)
  if($provider -eq 'G'){$r.State.Graph.TenantId=$bad}else{$r.State.Exchange[0].TenantID=$bad}
@@ -128,19 +128,19 @@ $r=New-TestRuntime
 Check 'nonbootstrap Graph auth requires a confirmed context' (Rejects {Connect-ToolkitDevice $r Graph -Scopes @('AuditLog.Read.All')})
 Check 'missing verified context makes no additional Graph auth call' (@($r.State.Calls | Where-Object Kind -eq 'Connect').Count -eq 0)
 # Full menu and logs use real local collectors with only synthetic data/transports.
-$r=New-TestRuntime @('L','alex@contoso.example','7','Y','N','N','N','Q')
+$r=New-TestRuntime @('L','alex@contoso.example','7','Y','N','N','Q')
 $history=Invoke-M365Terminal -Mode Synthetic -Runtime $r
 Check 'synthetic logs through complete menu produces triage' (@($r.State.Output | Where-Object {$_ -match '^MAILBOX: alex@contoso.example$'}).Count -eq 1)
 Check 'synthetic menu never touches auth/provider sessions' ($r.State.Calls.Count -eq 0)
 Check 'synthetic no-export produces no case path' ($null -eq $history[0][0].CasePath)
-$r=New-TestRuntime @('R','E','Y','L','alex@contoso.example,bob@contoso.example','1','Y','N','N','N','Q')
+$r=New-TestRuntime @('R','E','L','alex@contoso.example,bob@contoso.example','1','Y','N','N','Q')
 $history=Invoke-M365Terminal -Mode Live -Runtime $r
 $reads=@($r.State.Calls | Where-Object Kind -eq 'Read')
 Check 'mocked live menu triages two exact mailboxes' (@($r.State.Output | Where-Object {$_ -like 'MAILBOX:*'}).Count -eq 2)
 Check 'multiple mailboxes remain exact separate queries' (@($reads | Where-Object Command -eq 'Get-Mailbox').Count -eq 2 -and @($reads | Where-Object {$_.Command -eq 'Get-Mailbox' -and $_.Parameters.Identity -notin @('alex@contoso.example','bob@contoso.example')}).Count -eq 0)
 Check 'mailbox menu never requests broad audit' (@($reads | Where-Object {$_.Command -in @('Get-AcceptedDomain','Search-UnifiedAuditLog') -or [string](Get-ToolkitValue $_.Parameters 'Uri') -match '/directoryAudits|/v1.0/oauth2PermissionGrants'}).Count -eq 0)
 Check 'reused sufficient sessions require no reconnect' (@($r.State.Calls | Where-Object Kind -eq 'Connect').Count -eq 0)
-$r=New-TestRuntime @('R','E','Y','L','alex@contoso.example','1','Y','N','N','N','S','Q');$r.State.Graph=$null
+$r=New-TestRuntime @('R','E','L','alex@contoso.example','1','Y','N','N','Q');$r.State.Graph=$null
 $history=Invoke-M365Terminal -Mode Live -Runtime $r
 Check 'Exchange-only selected mailbox runs with explicit Graph gaps' (@($r.State.Output | Where-Object {$_ -like 'MAILBOX:*'}).Count -eq 1 -and @($r.State.Calls | Where-Object Kind -eq 'Connect').Count -eq 0)
 Check 'Exchange-only path makes no Graph provider request' (@($r.State.Calls | Where-Object {$_.Kind -eq 'Read' -and $_.Command -eq 'Invoke-MgGraphRequest'}).Count -eq 0)
@@ -149,7 +149,7 @@ Check 'mailbox cancellation does not collect' (@($r.State.Output | Where-Object 
 if(Test-Path "$root/Audit/M365SecurityAudit.psm1"){
  Import-Module "$root/Audit/M365SecurityAudit.psm1" -DisableNameChecking
  foreach($exchangeState in @('absent','wrong-tenant')){
-  $r=New-TestRuntime @('R','G','Y','A',('AUDIT '+$tenant),'Y','N','S','Q')
+  $r=New-TestRuntime @('R','G','A','AUDIT','Q')
   $r.State.Graph.Scopes=@((Get-M365OrganizationAuditPlan).GraphReadPermissions)
   if($exchangeState -eq 'absent'){$r.State.Exchange=@()}else{$r.State.Exchange[0].TenantID='99999999-2222-3333-4444-555555555555'}
   $auditState=$r.State
@@ -165,14 +165,14 @@ if(Test-Path "$root/Audit/M365SecurityAudit.psm1"){
   Check "Graph-only audit does not force component sign-in or tenant reads $exchangeState" (@($r.State.Calls | Where-Object {$_.Kind -in @('Connect','Read')}).Count -eq 0)
  }
  $r=New-TestRuntime @('A','wrong','Q');$null=Invoke-M365Terminal -Mode Synthetic -Runtime $r
- Check 'audit tenant confirmation cancellation safe' (@($r.State.Output | Where-Object {$_ -like 'Audit canceled*'}).Count -eq 1 -and $r.State.Calls.Count -eq 0)
- $r=New-TestRuntime @('A',('AUDIT '+$tenant),'N','Q');$null=Invoke-M365Terminal -Mode Synthetic -Runtime $r
- Check 'audit organization scope decline safe' (@($r.State.Output | Where-Object {$_ -like 'Audit canceled*'}).Count -eq 1 -and $r.State.Calls.Count -eq 0)
- $r=New-TestRuntime @('A',('AUDIT '+$tenant),'Y','N','Q');$history=Invoke-M365Terminal -Mode Synthetic -Runtime $r
+ Check 'audit incorrect approval cancellation safe' (@($r.State.Output | Where-Object {$_ -like 'Audit canceled*'}).Count -eq 1 -and $r.State.Calls.Count -eq 0)
+ $r=New-TestRuntime @('A','','Q');$null=Invoke-M365Terminal -Mode Synthetic -Runtime $r
+ Check 'audit blank approval decline safe' (@($r.State.Output | Where-Object {$_ -like 'Audit canceled*'}).Count -eq 1 -and $r.State.Calls.Count -eq 0)
+ $r=New-TestRuntime @('A','AUDIT','Q');$history=Invoke-M365Terminal -Mode Synthetic -Runtime $r
  Check 'full synthetic audit through menu completes' ($history.Count -eq 1 -and $history[0].SelectedCount -eq 46)
  Check 'synthetic audit makes no auth/session calls' ($r.State.Calls.Count -eq 0)
 }
-$r=New-TestRuntime @('L','alex@contoso.example','7','Y','N','N','N','V','1','Exchange.Mailbox','@coverage 1','','Q')
+$r=New-TestRuntime @('L','alex@contoso.example','7','Y','N','N','V','1','Exchange.Mailbox','@coverage 1','','Q')
 $null=Invoke-M365Terminal -Mode Synthetic -Runtime $r
 Check 'terminal source viewer displays JSON without a file' (@($r.State.Output | Where-Object {$_ -match 'DeliverToMailboxAndForward'}).Count -ge 1)
 Check 'terminal viewer emits no control sequences' (@($r.State.Output | Where-Object {$_ -match '[\x00-\x1f\x7f-\x9f]'}).Count -eq 0)
@@ -186,6 +186,48 @@ foreach($file in $production){
  Check "no server browser install secret commands $($file.Name)" (@($commands | Where-Object {$_ -match '^(Start-Process|Invoke-Item|Install-Module|Install-PSResource|Get-Credential|Start-Transcript|Invoke-WebRequest|Invoke-RestMethod|python|node|open|xdg-open)$'}).Count -eq 0)
  Check "no listener type $($file.Name)" ((Get-Content $file.FullName -Raw) -notmatch '(?i)HttpListener|TcpListener|SocketType')
 }
+
+# Streamlined UI: one deliberate scope confirmation, no repeated consent/save prompts.
+$r=New-TestRuntime @('A','','Q');$null=Invoke-M365Terminal -Mode Live -Runtime $r
+$c=@($r.State.Calls | Where-Object Kind -eq 'Connect')
+$expected=@((Get-M365OrganizationAuditPlan).GraphReadPermissions|Sort-Object)
+Check 'explicit startup Audit uses one device flow' ($c.Count -eq 1 -and $c[0].Service -eq 'Graph' -and $c[0].Parameters.UseDeviceCode)
+Check 'startup Audit scopes exactly planned reads' ((@($c[0].Parameters.Scopes|Sort-Object) -join ',') -ceq ($expected -join ','))
+Check 'startup Audit access does not itself collect' (@($r.State.Calls|Where-Object {$_.Kind -in @('Read','Audit')}).Count -eq 0)
+Check 'startup displays exact scopes and new consent stop notice' (($r.State.Output -join ' ') -match 'Policy.Read.All' -and ($r.State.Output -join ' ') -match 'Stop at any new Microsoft consent')
+Check 'startup Audit goes straight to one confirmation then cancellation returns menu' ($r.State.Prompts.Count -eq 3 -and $r.State.Prompts[1] -like 'Type AUDIT*' -and $r.State.Prompts[2] -like 'A = Audit*')
+$r=New-TestRuntime @('A','AUDIT','Q');$st=$r.State
+$r.AuditRun={param($p)$st.Calls.Add(@{Kind='Audit';Parameters=$p.Clone()});$sp=$p.Clone();$sp.Mode='Synthetic';Invoke-M365OrganizationAudit @sp}.GetNewClosure()
+$h=Invoke-M365Terminal -Mode Live -Runtime $r
+Check 'startup Audit runs with no duplicate action selection' ($h.Count -eq 1 -and $r.State.Prompts.Count -eq 3 -and $r.State.Prompts[1] -like 'Type AUDIT*')
+Check 'startup Audit one authentication only' (@($r.State.Calls|Where-Object Kind -eq 'Connect').Count -eq 1)
+Check 'startup Audit retains underlying tenant authorization' (@($r.State.Calls|Where-Object Kind -eq 'Audit')[0].Parameters.ConfirmedTenantId -eq $tenant)
+foreach($approval in @('','Y','AUDIT wrong','audit')){
+ $r=New-TestRuntime @('A',$approval,'Q');$null=Invoke-M365Terminal -Mode Synthetic -Runtime $r
+ Check "only exact AUDIT approval accepted $($checks.Count)" ($r.State.Calls.Count -eq 0 -and @($r.State.Output|Where-Object {$_ -like 'Audit canceled*'}).Count -eq 1)
+}
+$r=New-TestRuntime @('R','G','A','AUDIT','Q');$r.State.Graph.Scopes=@('User.Read');$r.State.Exchange=@()
+$st=$r.State
+$r.AuditRun={param($p)$st.Calls.Add(@{Kind='Audit';Parameters=$p.Clone()});$sp=$p.Clone();$sp.Mode='Synthetic';Invoke-M365OrganizationAudit @sp}.GetNewClosure()
+$h=Invoke-M365Terminal -Mode Live -Runtime $r
+Check 'existing minimal session never silently expands' (@($r.State.Calls|Where-Object Kind -eq 'Connect').Count -eq 0)
+Check 'standard audit prompt count bounded' ($r.State.Prompts.Count -eq 5)
+Check 'one scope confirmation no provider/save prompts' (@($r.State.Prompts|Where-Object {$_ -like 'Type AUDIT*'}).Count -eq 1 -and @($r.State.Prompts|Select-Object -Skip 2|Where-Object {$_ -match 'Save optional|Device sign-in|Confirm you|Use this resolved|Intune'}).Count -eq 0)
+$ac=@($r.State.Calls|Where-Object Kind -eq 'Audit')
+Check 'standard audit no export request' ($ac.Count -eq 1 -and -not $ac[0].Parameters.ContainsKey('OutputPath') -and -not $h[0].OutputPath)
+Check 'audit no saving prompt or auto output' (@($r.State.Prompts|Where-Object {$_ -match 'file path|Save optional'}).Count -eq 0)
+Check 'consolidated coverage gap notice' (@($r.State.Output|Where-Object {$_ -like 'Coverage gaps*'}).Count -eq 1)
+$r=New-TestRuntime @('R','G','Q');$null=Invoke-M365Terminal -Mode Live -Runtime $r
+Check 'menu quit no default organization collection' (@($r.State.Calls|Where-Object {$_.Kind -in @('Audit','Read','Connect')}).Count -eq 0)
+$r=New-TestRuntime @('S','Q');$null=Invoke-M365Terminal -Mode Synthetic -Runtime $r
+Check 'save without result makes no file prompt' ($r.State.Prompts.Count -eq 2 -and ($r.State.Output -join ' ') -match 'No in-memory result to save')
+$r=New-TestRuntime @('A','AUDIT','S','','Q');$null=Invoke-M365Terminal -Mode Synthetic -Runtime $r
+Check 'explicit save blank cancellation' (($r.State.Output -join ' ') -match 'Save canceled; no file created' -and $r.State.Calls.Count -eq 0)
+$saveDir=Join-Path $root ('test-output/ui-save-'+[guid]::NewGuid().ToString('N'));[void][IO.Directory]::CreateDirectory($saveDir);$savePath=Join-Path $saveDir 'synthetic.json'
+$r=New-TestRuntime @('A','AUDIT','S',$savePath,'Q');$h=Invoke-M365Terminal -Mode Synthetic -Runtime $r
+Check 'explicit save produces JSON from existing result' ((Test-Path $savePath) -and (Get-Content $savePath -Raw|ConvertFrom-Json).Mode -eq 'Synthetic' -and $h.Count -eq 1)
+Check 'explicit save no extra provider/auth' ($r.State.Calls.Count -eq 0)
+$r=New-TestRuntime @($savePath);Check 'save refuses existing file' (Rejects {Save-ToolkitResult $h[0] $r})
 $result=[pscustomobject]@{Passed=$true;Checks=$checks.Count;Details=$checks.ToArray();PowerShell=$PSVersionTable.PSVersion.ToString();LiveTenantTested=$false;Authentication='Mocks only';Providers='Synthetic fixtures and injected transports only'}
 if($ResultsPath){$result | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $ResultsPath}
 $result | ConvertTo-Json -Depth 20

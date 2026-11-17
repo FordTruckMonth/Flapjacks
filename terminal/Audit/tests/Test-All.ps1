@@ -153,13 +153,20 @@ $fakeModule=New-Module -Name SyntheticExchangeSession -ScriptBlock {
         [pscustomobject]@{Identity="test-$IncludeTestModeConnectors-scope-$IsTransportRuleScoped";Name=$ResultSize;Enabled=$true}
     }
     function Get-DkimSigningConfig { [CmdletBinding()]param([Parameter(Mandatory)][string]$Identity);throw 'should never prompt or invoke' }
+    $script:omitRejectDirectSend=$false
+    function Get-OrganizationConfig {
+        [CmdletBinding()]param()
+        $row=[ordered]@{Identity='synthetic-org';OAuth2ClientProfileEnabled=$true;AuditDisabled=$false;DefaultAuthenticationPolicy='synthetic';AutoExpandingArchiveEnabled=$false}
+        if(-not $script:omitRejectDirectSend){$row.RejectDirectSend=$false}
+        [pscustomobject]$row
+    }
     function Get-TransportConfig { [CmdletBinding()]param();Write-Warning 'synthetic truncated result';[pscustomobject]@{Identity='x'} }
     function Get-RetentionCompliancePolicy {
         [CmdletBinding()]param([switch]$DistributionDetail)
         if (-not $DistributionDetail) { throw 'distribution detail required' }
         [pscustomobject]@{Identity='retention';Name='retention';Enabled=$true}
     }
-    Export-ModuleMember -Function Get-OutboundConnector,Get-DkimSigningConfig,Get-TransportConfig,Get-RetentionCompliancePolicy
+    Export-ModuleMember -Function Get-OrganizationConfig,Get-OutboundConnector,Get-DkimSigningConfig,Get-TransportConfig,Get-RetentionCompliancePolicy
 }
 Import-Module $fakeModule -Force
 $session=@{Connection=@{ModuleName='SyntheticExchangeSession'}}
@@ -174,10 +181,24 @@ Assert ($r.Status -eq 'Unavailable' -and $r.RequestCount -eq 0) 'wrong-session c
 $mandatorySource=$catalog | Where-Object Id -eq 'exchange-dkim'
 $r=Read-AuditCommandSource -Source $mandatorySource -Session $session
 Assert ($r.Status -eq 'Partial' -and $r.RequestCount -eq 0) 'mandatory prompt prevented'
+$organizationSource=$catalog | Where-Object Id -eq 'exchange-organization'
+$transportSource=$catalog | Where-Object Id -eq 'exchange-transport'
+Assert ($organizationSource.Target -eq 'Get-OrganizationConfig' -and 'RejectDirectSend' -in $organizationSource.Fields) 'RejectDirectSend assigned to organization command'
+Assert ('RejectDirectSend' -notin $transportSource.Fields) 'RejectDirectSend not requested from transport'
+$r=Read-AuditCommandSource -Source $organizationSource -Session $session
+Assert ($r.Status -eq 'Collected' -and $r.MissingFields.Count -eq 0) 'complete organization projection collected'
+Assert ($r.Items[0].RejectDirectSend -is [bool] -and $r.Items[0].RejectDirectSend -eq $false) 'explicit RejectDirectSend false preserved as Boolean'
+& $fakeModule { $script:omitRejectDirectSend=$true }
+$r=Read-AuditCommandSource -Source $organizationSource -Session $session
+Assert ($r.Status -eq 'Partial' -and 'RejectDirectSend' -in $r.MissingFields) 'absent organization RejectDirectSend remains unknown partial'
+Assert ($null -eq $r.Items[0].PSObject.Properties['RejectDirectSend']) 'absent RejectDirectSend not invented as false'
+$fixture=Get-Content (Join-Path $script:AuditRoot 'fixtures/synthetic.json') -Raw | ConvertFrom-Json
+Assert ($fixture.'exchange-organization'.Items[0].RejectDirectSend -is [bool] -and $fixture.'exchange-organization'.Items[0].RejectDirectSend -eq $false) 'synthetic organization fixture preserves explicit false'
 $warningSource=$catalog | Where-Object Id -eq 'exchange-transport'
 $r=Read-AuditCommandSource -Source $warningSource -Session $session
 Assert ($r.Status -eq 'Partial' -and $r.Reason -match 'Warning') 'Exchange warnings never labeled complete'
 Assert ($r.MissingFields.Count -gt 0) 'missing Exchange properties tracked'
+Assert ('RejectDirectSend' -notin $r.MissingFields) 'transport no longer reports incorrect RejectDirectSend gap'
 $retentionSource=[pscustomobject]@{Id='test-retention';Group='Purview';Provider='Purview';Target='Get-RetentionCompliancePolicy';Fields=@('Identity','Name','Enabled');Notes='synthetic'}
 $r=Read-AuditCommandSource -Source $retentionSource -Session $session
 Assert ($r.Status -eq 'Collected' -and $r.Count -eq 1) 'Purview reads request DistributionDetail'
