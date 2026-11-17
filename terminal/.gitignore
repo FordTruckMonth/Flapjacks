@@ -1,0 +1,8 @@
+evidence/
+test-output/
+.pwsh-*/
+*.log
+.env*
+*.pfx
+*.pem
+*.key

@@ -1,0 +1,536 @@
+{
+  "conditional-access": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": [
+      {
+        "id": "ca-synthetic-01",
+        "displayName": "Require strong authentication for administrators",
+        "state": "enabled",
+        "conditions": {
+          "users": {
+            "includeRoles": [
+              "synthetic-role-id"
+            ],
+            "excludeUsers": [
+              "synthetic-emergency-id"
+            ]
+          },
+          "applications": {
+            "includeApplications": [
+              "All"
+            ]
+          },
+          "clientAppTypes": [
+            "all"
+          ]
+        },
+        "grantControls": {
+          "operator": "OR",
+          "builtInControls": [
+            "mfa"
+          ]
+        },
+        "sessionControls": {
+          "signInFrequency": {
+            "value": 12,
+            "type": "hours",
+            "isEnabled": true
+          }
+        }
+      },
+      {
+        "id": "ca-synthetic-02",
+        "displayName": "Pilot <legacy & authentication>",
+        "state": "enabledForReportingButNotEnforced",
+        "conditions": {
+          "users": {
+            "includeUsers": [
+              "All"
+            ]
+          },
+          "applications": {
+            "includeApplications": [
+              "All"
+            ]
+          },
+          "clientAppTypes": [
+            "exchangeActiveSync",
+            "other"
+          ]
+        },
+        "grantControls": {
+          "operator": "OR",
+          "builtInControls": [
+            "block"
+          ]
+        }
+      },
+      {
+        "id": "ca-synthetic-03",
+        "displayName": "=HYPERLINK(\"https://invalid.example\",\"never execute\")",
+        "state": "disabled",
+        "conditions": {
+          "users": {
+            "includeUsers": [
+              "All"
+            ],
+            "excludeGroups": [
+              "synthetic-exception-group"
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "named-locations": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": [
+      {
+        "id": "loc-synthetic-01",
+        "displayName": "Documentation-only location",
+        "isTrusted": false,
+        "ipRanges": [
+          {
+            "cidrAddress": "192.0.2.0/24"
+          }
+        ]
+      }
+    ]
+  },
+  "security-defaults": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": [
+      {
+        "id": "security-defaults",
+        "displayName": "Security defaults",
+        "isEnabled": false
+      }
+    ]
+  },
+  "authorization-policy": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": [
+      {
+        "id": "authorizationPolicy",
+        "defaultUserRolePermissions": {
+          "allowedToCreateApps": true,
+          "allowedToCreateSecurityGroups": true,
+          "permissionGrantPoliciesAssigned": [
+            "managePermissionGrantsForSelf.microsoft-user-default-low"
+          ]
+        },
+        "allowInvitesFrom": "adminsAndGuestInviters"
+      }
+    ]
+  },
+  "admin-consent-policy": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": [
+      {
+        "isEnabled": true,
+        "requestDurationInDays": 30,
+        "notifyReviewers": true,
+        "remindersEnabled": true,
+        "reviewers": []
+      }
+    ]
+  },
+  "cross-tenant-default": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": [
+      {
+        "isServiceDefault": true,
+        "inboundTrust": {
+          "isMfaAccepted": false,
+          "isCompliantDeviceAccepted": false,
+          "isHybridAzureADJoinedDeviceAccepted": false
+        }
+      }
+    ]
+  },
+  "cross-tenant-partners": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": []
+  },
+  "authentication-methods-policy": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": [
+      {
+        "id": "authenticationMethodsPolicy",
+        "policyMigrationState": "migrationComplete",
+        "authenticationMethodConfigurations": [
+          {
+            "id": "Fido2",
+            "state": "enabled",
+            "includeTargets": [
+              {
+                "id": "all_users",
+                "targetType": "group"
+              }
+            ]
+          },
+          {
+            "id": "Sms",
+            "state": "disabled",
+            "includeTargets": []
+          }
+        ]
+      }
+    ]
+  },
+  "authentication-strengths": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": [
+      {
+        "id": "synthetic-strength",
+        "displayName": "Synthetic phishing-resistant strength",
+        "policyType": "custom",
+        "allowedCombinations": [
+          "fido2"
+        ]
+      }
+    ]
+  },
+  "permission-grant-policies": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": [
+      {
+        "id": "synthetic-consent",
+        "displayName": "Synthetic low-impact permission consent",
+        "includes": [
+          {
+            "id": "condition-1",
+            "permissionClassification": "low",
+            "clientApplicationsFromVerifiedPublisherOnly": true
+          }
+        ],
+        "excludes": []
+      }
+    ]
+  },
+  "role-definitions": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": [
+      {
+        "id": "synthetic-global-admin",
+        "displayName": "Synthetic Global Administrator",
+        "isBuiltIn": true
+      }
+    ]
+  },
+  "role-assignments": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": [
+      {
+        "id": "synthetic-assignment",
+        "principalId": "synthetic-admin-principal",
+        "roleDefinitionId": "synthetic-global-admin",
+        "directoryScopeId": "/"
+      }
+    ]
+  },
+  "role-eligibility-instances": {
+    "Status": "AccessDenied",
+    "Reason": "Synthetic HTTP403. Could be permissions, role, licensing or service availability; no inference made.",
+    "Items": []
+  },
+  "tenant-domains": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": [
+      {
+        "id": "tenant.invalid",
+        "isVerified": true,
+        "isDefault": true,
+        "authenticationType": "Managed"
+      }
+    ]
+  },
+  "tenant-subscriptions": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": [
+      {
+        "skuId": "synthetic-sku",
+        "skuPartNumber": "SYNTHETIC_EXAMPLE",
+        "capabilityStatus": "Enabled",
+        "consumedUnits": 7,
+        "prepaidUnits": {
+          "enabled": 10
+        }
+      }
+    ]
+  },
+  "intune-compliance-policy-metadata": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": [
+      {
+        "id": "synthetic-compliance",
+        "displayName": "Example Windows compliance policy",
+        "description": "Metadata only. No policy settings, assignments or device data.",
+        "version": 2
+      }
+    ]
+  },
+  "intune-configuration-policy-metadata": {
+    "Status": "Unavailable",
+    "Reason": "Synthetic unavailable source, not an empty policy collection.",
+    "Items": []
+  },
+  "exchange-organization": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": [
+      {
+        "Identity": "Synthetic tenant",
+        "OAuth2ClientProfileEnabled": true,
+        "AuditDisabled": false,
+        "DefaultAuthenticationPolicy": "Synthetic block basic auth",
+        "RejectDirectSend": false
+      }
+    ]
+  },
+  "exchange-transport": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": [
+      {
+        "Identity": "Synthetic transport",
+        "SmtpClientAuthenticationDisabled": true
+      }
+    ]
+  },
+  "exchange-authentication-policies": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": [
+      {
+        "Identity": "Synthetic block basic auth",
+        "Name": "Synthetic block basic auth",
+        "AllowBasicAuthSmtp": false
+      }
+    ]
+  },
+  "exchange-accepted-domains": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": [
+      {
+        "Identity": "tenant.invalid",
+        "Name": "tenant.invalid",
+        "DomainName": "tenant.invalid",
+        "DomainType": "Authoritative",
+        "Default": true
+      }
+    ]
+  },
+  "exchange-remote-domains": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": [
+      {
+        "Identity": "Default",
+        "DomainName": "*",
+        "AutoForwardEnabled": false
+      }
+    ]
+  },
+  "exchange-dkim": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": [
+      {
+        "Identity": "tenant.invalid",
+        "Domain": "tenant.invalid",
+        "Enabled": false,
+        "Status": "CnameMissing"
+      }
+    ]
+  },
+  "exchange-inbound-connectors": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": []
+  },
+  "exchange-outbound-connectors": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": []
+  },
+  "exchange-transport-rules": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": []
+  },
+  "exchange-antispam-policies": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": []
+  },
+  "exchange-antispam-rules": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": []
+  },
+  "exchange-outbound-spam-policies": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": [
+      {
+        "Identity": "Synthetic forwarding exception",
+        "Name": "Synthetic forwarding exception",
+        "AutoForwardingMode": "On"
+      }
+    ]
+  },
+  "exchange-outbound-spam-rules": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": [
+      {
+        "Identity": "Synthetic forwarding scope",
+        "Name": "Synthetic forwarding scope",
+        "State": "Enabled",
+        "Priority": 0,
+        "HostedOutboundSpamFilterPolicy": "Synthetic forwarding exception",
+        "From": [
+          "test@tenant.invalid"
+        ]
+      }
+    ]
+  },
+  "exchange-antiphish-policies": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": [
+      {
+        "Identity": "Synthetic default",
+        "Name": "Synthetic default",
+        "IsDefault": true,
+        "EnableSpoofIntelligence": true
+      }
+    ]
+  },
+  "exchange-antiphish-rules": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": []
+  },
+  "exchange-malware-policies": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": []
+  },
+  "exchange-malware-rules": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": []
+  },
+  "exchange-safe-links-policies": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": [
+      {
+        "Identity": "Built-in Protection Policy",
+        "Name": "Built-in Protection Policy",
+        "IsBuiltInProtection": true,
+        "EnableSafeLinksForEmail": true,
+        "EnableSafeLinksForTeams": true,
+        "AllowClickThrough": false
+      }
+    ]
+  },
+  "exchange-safe-links-rules": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": []
+  },
+  "exchange-safe-attachments-policies": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": []
+  },
+  "exchange-safe-attachments-rules": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": []
+  },
+  "exchange-atp-organization": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": []
+  },
+  "exchange-preset-eop-rules": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": []
+  },
+  "exchange-preset-atp-rules": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": []
+  },
+  "exchange-built-in-protection-rule": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": [
+      {
+        "Identity": "Built-In Protection Rule",
+        "Name": "Built-In Protection Rule",
+        "State": "Enabled",
+        "ExceptIfSentTo": []
+      }
+    ]
+  },
+  "purview-dlp-policies": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": [
+      {
+        "Identity": "synthetic-dlp",
+        "Name": "Synthetic DLP policy",
+        "Enabled": true,
+        "Mode": "TestWithNotifications",
+        "ExchangeLocation": [
+          "All"
+        ]
+      }
+    ]
+  },
+  "purview-dlp-rule-metadata": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": [
+      {
+        "Identity": "synthetic-dlp-rule",
+        "Name": "Synthetic DLP rule",
+        "Disabled": false,
+        "Priority": 0,
+        "ParentPolicyName": "Synthetic DLP policy"
+      }
+    ]
+  },
+  "purview-retention-policies": {
+    "Status": "Partial",
+    "Reason": "Synthetic warning or collection gap: do not interpret as no retention policies.",
+    "Items": []
+  },
+  "purview-retention-rules": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": []
+  }
+}

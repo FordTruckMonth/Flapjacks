@@ -1,0 +1,21 @@
+{
+  "Passed": true,
+  "PowerShell": "7.7.0",
+  "NativeParser": "Passed",
+  "ToolkitChecks": 125,
+  "LogsChecks": 37,
+  "OriginalHelperScenarios": 9,
+  "OriginalHelperAssertions": 21,
+  "PagerCases": 18,
+  "AuditAssertions": 159,
+  "AuditTerminalGateAssertions": 48,
+  "LiveTenantTested": false,
+  "Authentication": "Mocks only",
+  "ActualCliSyntheticLogs": "Passed, exit 0; terminal source viewer checked",
+  "ActualCliSyntheticAudit": "Passed, exit 0; terminal source viewer checked",
+  "OptionalJsonCsvExports": "Passed, exit 0 for Logs and Audit; no HTML/JS files",
+  "ProviderFirstStartup": "Passed: default Graph User.Read, optional Exchange/reuse, authenticated tenant/account confirmation, mismatch/ambiguity/cancellation and Graph-only audit mocks",
+  "PrerequisiteChecks": 46,
+  "PrerequisiteLocalCLI": "Debian plan exit0, check exit2 (expected missing/unsupported), Install -WhatIf exit0; no install/download",
+  "PrerequisiteInstallationTested": false
+}

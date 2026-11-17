@@ -1,0 +1,453 @@
+{
+  "Synthetic": true,
+  "TargetUpn": "alex@contoso.example",
+  "ReferenceUtc": "2026-11-11T00:00:00Z",
+  "Sources": {
+    "Exchange.Mailbox": {
+      "Items": [
+        {
+          "Identity": "alex@contoso.example",
+          "UserPrincipalName": "alex@contoso.example",
+          "PrimarySmtpAddress": "alex@contoso.example",
+          "EmailAddresses": [
+            "SMTP:alex@contoso.example",
+            "smtp:alex.alias@contoso.example"
+          ],
+          "RecipientTypeDetails": "UserMailbox",
+          "ArchiveStatus": "Active",
+          "ProhibitSendQuota": "49 GB",
+          "ProhibitSendReceiveQuota": "50 GB",
+          "ForwardingSmtpAddress": "smtp:archive@outside.example",
+          "ForwardingAddress": null,
+          "DeliverToMailboxAndForward": true,
+          "GrantSendOnBehalfTo": [
+            "assistant@contoso.example"
+          ],
+          "AuditEnabled": true,
+          "AuditOwner": [
+            "MailItemsAccessed"
+          ],
+          "AuditDelegate": [
+            "SendAs",
+            "MailItemsAccessed"
+          ],
+          "AuditAdmin": [
+            "UpdateInboxRules"
+          ],
+          "AuditLogAgeLimit": "90.00:00:00",
+          "RetentionPolicy": "Synthetic 7 year",
+          "LitigationHoldEnabled": false
+        }
+      ],
+      "Status": "Collected",
+      "Reason": "Synthetic fixture only; no tenant connection",
+      "Notes": []
+    },
+    "Exchange.Statistics": {
+      "Items": [
+        {
+          "DisplayName": "Alex Synthetic",
+          "TotalItemSize": "2.1 GB",
+          "ItemCount": 3200,
+          "DeletedItemCount": 22,
+          "StorageLimitStatus": "BelowLimit"
+        }
+      ],
+      "Status": "Collected",
+      "Reason": "Synthetic fixture only; no tenant connection",
+      "Notes": []
+    },
+    "Exchange.ArchiveStatistics": {
+      "Items": [
+        {
+          "TotalItemSize": "4.2 GB",
+          "ItemCount": 15000
+        }
+      ],
+      "Status": "Collected",
+      "Reason": "Synthetic fixture only; no tenant connection",
+      "Notes": []
+    },
+    "Exchange.Rules": {
+      "Items": [
+        {
+          "Identity": "synthetic-rule",
+          "Name": "Invoice <img src=x onerror=alert(1)>",
+          "Enabled": true,
+          "Priority": 1,
+          "Description": "Move invoices and forward to archive@outside.example",
+          "ForwardTo": [
+            "archive@outside.example"
+          ],
+          "MoveToFolder": "RSS Feeds",
+          "DeleteMessage": false,
+          "StopProcessingRules": true,
+          "IsHidden": true
+        }
+      ],
+      "Status": "Collected",
+      "Reason": "Synthetic fixture only; no tenant connection",
+      "Notes": []
+    },
+    "Exchange.FullAccess": {
+      "Items": [
+        {
+          "Identity": "alex@contoso.example",
+          "User": "delegate@contoso.example",
+          "AccessRights": [
+            "FullAccess"
+          ],
+          "IsInherited": false,
+          "Deny": false
+        }
+      ],
+      "Status": "Collected",
+      "Reason": "Synthetic fixture only; no tenant connection",
+      "Notes": []
+    },
+    "Exchange.SendAs": {
+      "Items": [
+        {
+          "Identity": "alex@contoso.example",
+          "Trustee": "delegate@contoso.example",
+          "AccessRights": [
+            "SendAs"
+          ]
+        }
+      ],
+      "Status": "Collected",
+      "Reason": "Synthetic fixture only; no tenant connection",
+      "Notes": []
+    },
+    "Exchange.Protocols": {
+      "Items": [
+        {
+          "Identity": "alex@contoso.example",
+          "PopEnabled": false,
+          "ImapEnabled": true,
+          "MAPIEnabled": true,
+          "OWAEnabled": true,
+          "ActiveSyncEnabled": true,
+          "SmtpClientAuthenticationDisabled": true
+        }
+      ],
+      "Status": "Collected",
+      "Reason": "Synthetic fixture only; no tenant connection",
+      "Notes": []
+    },
+    "Exchange.Mobile": {
+      "Items": [],
+      "Status": "Denied",
+      "Reason": "Synthetic 403: mobile partnership read denied",
+      "Notes": []
+    },
+    "Exchange.AcceptedDomains": {
+      "Items": [
+        {
+          "DomainName": "contoso.example",
+          "DomainType": "Authoritative"
+        }
+      ],
+      "Status": "Collected",
+      "Reason": "Synthetic fixture only; no tenant connection",
+      "Notes": []
+    },
+    "Exchange.FolderPermissions": {
+      "Items": [
+        {
+          "FolderPath": "/Inbox",
+          "Payload": {
+            "User": "delegate@contoso.example",
+            "AccessRights": [
+              "Reviewer"
+            ]
+          }
+        }
+      ],
+      "Status": "Partial",
+      "Reason": "Synthetic second folder denied; collected Inbox permissions retained",
+      "Notes": []
+    },
+    "Trace.Received": {
+      "Items": [
+        {
+          "MessageTraceId": "33333333-3333-4333-8333-333333333333",
+          "MessageId": "<synthetic-001@sender.example>",
+          "Received": "2026-11-10T09:00:00Z",
+          "SenderAddress": "billing@sender.example",
+          "RecipientAddress": "alex@contoso.example",
+          "Subject": "=HYPERLINK(\"https://evil.example/a\",\"invoice\") <script>alert(1)</script>",
+          "Size": 4096,
+          "Status": "Delivered"
+        }
+      ],
+      "Status": "Collected",
+      "Reason": "Synthetic fixture only; no tenant connection",
+      "Notes": []
+    },
+    "Trace.Sent": {
+      "Items": [
+        {
+          "MessageTraceId": "44444444-4444-4444-8444-444444444444",
+          "MessageId": "<synthetic-reply@contoso.example>",
+          "Received": "2026-11-10T09:30:00Z",
+          "SenderAddress": "alex@contoso.example",
+          "RecipientAddress": "billing@sender.example",
+          "Subject": "+SUM(1,2)",
+          "Size": 2048,
+          "Status": "Delivered"
+        }
+      ],
+      "Status": "Collected",
+      "Reason": "Synthetic fixture only; no tenant connection",
+      "Notes": []
+    },
+    "Trace.Details": {
+      "Items": [
+        {
+          "MessageTraceId": "33333333-3333-4333-8333-333333333333",
+          "RecipientAddress": "alex@contoso.example",
+          "Payload": {
+            "Date": "2026-11-10T09:00:01Z",
+            "Event": "Deliver",
+            "Detail": "Synthetic mailbox delivery"
+          }
+        }
+      ],
+      "Status": "Collected",
+      "Reason": "Synthetic fixture only; no tenant connection",
+      "Notes": []
+    },
+    "Purview.Audit": {
+      "Items": [
+        {
+          "AuditData": "{\"Id\": \"audit-rule\", \"CreationTime\": \"2026-11-10T09:14:00Z\", \"Operation\": \"New-InboxRule\", \"UserId\": \"delegate@contoso.example\", \"MailboxOwnerUPN\": \"alex@contoso.example\", \"ClientIP\": \"203.0.113.17\", \"SessionId\": \"session-123\", \"Parameters\": [{\"Name\": \"Mailbox\", \"Value\": \"alex@contoso.example\"}, {\"Name\": \"ForwardTo\", \"Value\": \"archive@outside.example\"}]}"
+        },
+        {
+          "AuditData": "{\"Id\": \"audit-bind\", \"CreationTime\": \"2026-11-10T09:16:00Z\", \"Operation\": \"MailItemsAccessed\", \"UserId\": \"alex@contoso.example\", \"MailboxOwnerUPN\": \"alex@contoso.example\", \"ClientIPAddress\": \"203.0.113.17\", \"SessionId\": \"session-123\", \"OperationProperties\": [{\"Name\": \"MailAccessType\", \"Value\": \"Bind\"}], \"Folders\": [{\"Id\": \"inbox\", \"Path\": \"\\\\Inbox\", \"FolderItems\": [{\"InternetMessageId\": \"<synthetic-001@sender.example>\"}]}]}"
+        },
+        {
+          "AuditData": "{\"Id\": \"audit-sync\", \"CreationTime\": \"2026-11-10T09:18:00Z\", \"Operation\": \"MailItemsAccessed\", \"UserId\": \"alex@contoso.example\", \"MailboxOwnerUPN\": \"alex@contoso.example\", \"SessionId\": \"session-123\", \"OperationProperties\": [{\"Name\": \"MailAccessType\", \"Value\": \"Sync\"}], \"Folders\": [{\"Id\": \"inbox\", \"Path\": \"\\\\Inbox\"}]}"
+        },
+        {
+          "AuditData": "{\"Id\": \"audit-badtime\", \"CreationTime\": null, \"Operation\": \"UpdateInboxRules\", \"UserId\": \"alex@contoso.example\", \"MailboxOwnerUPN\": \"alex@contoso.example\", \"ClientIP\": \"203.0.113.17\"}"
+        }
+      ],
+      "Status": "Collected",
+      "Reason": "Synthetic fixture only; no tenant connection",
+      "Notes": [
+        "Bind is aggregated, Sync is folder-level. No item-level Sync timestamps."
+      ]
+    },
+    "Entra.SignIns": {
+      "Items": [
+        {
+          "id": "signin-1",
+          "createdDateTime": "2026-11-10T10:10:00+01:00",
+          "userPrincipalName": "alex@contoso.example",
+          "ipAddress": "203.0.113.17",
+          "clientAppUsed": "Browser",
+          "appDisplayName": "Office 365 Exchange Online",
+          "status": {
+            "errorCode": 0
+          },
+          "location": {
+            "countryOrRegion": "ZZ",
+            "city": "Synthetic"
+          },
+          "deviceDetail": {
+            "isCompliant": false,
+            "browser": "Synthetic Browser"
+          },
+          "authenticationRequirement": "multiFactorAuthentication",
+          "authenticationDetails": [
+            {
+              "authenticationMethod": "Previously satisfied",
+              "succeeded": true
+            }
+          ],
+          "conditionalAccessStatus": "success",
+          "sessionId": "entra-session-1"
+        },
+        {
+          "id": "signin-fail",
+          "createdDateTime": "2026-11-10T09:09:00Z",
+          "userPrincipalName": "alex@contoso.example",
+          "ipAddress": "203.0.113.17",
+          "status": {
+            "errorCode": 50126,
+            "failureReason": "Synthetic invalid credentials"
+          },
+          "conditionalAccessStatus": "notApplied"
+        }
+      ],
+      "Status": "Collected",
+      "Reason": "Synthetic fixture only; no tenant connection",
+      "Notes": []
+    },
+    "Entra.NonInteractiveSignIns": {
+      "Items": [
+        {
+          "id": "synthetic-noninteractive",
+          "createdDateTime": "2026-11-10T09:13:00Z",
+          "userPrincipalName": "alex@contoso.example",
+          "ipAddress": "203.0.113.17",
+          "clientAppUsed": "Mobile Apps and Desktop clients",
+          "appDisplayName": "Office 365 Exchange Online",
+          "isInteractive": false,
+          "signInEventTypes": [
+            "nonInteractiveUser"
+          ],
+          "status": {
+            "errorCode": 0
+          },
+          "sessionId": "entra-session-1",
+          "authenticationRequirement": "multiFactorAuthentication",
+          "conditionalAccessStatus": "success"
+        }
+      ],
+      "Status": "Collected",
+      "Reason": "Synthetic Graph beta preview shape, not tenant evidence",
+      "Notes": [
+        "Live use requires explicit -IncludeNonInteractivePreview; beta contract can change."
+      ]
+    },
+    "Entra.Audit": {
+      "Items": [
+        {
+          "id": "directory-consent",
+          "activityDateTime": "2026-11-10T09:12:00Z",
+          "activityDisplayName": "Consent to application",
+          "result": "success",
+          "initiatedBy": {
+            "user": {
+              "userPrincipalName": "admin@contoso.example"
+            }
+          },
+          "targetResources": [
+            {
+              "id": "11111111-1111-4111-8111-111111111111",
+              "userPrincipalName": "alex@contoso.example",
+              "modifiedProperties": [
+                {
+                  "displayName": "Scope",
+                  "newValue": "Mail.Read"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "Status": "Collected",
+      "Reason": "Synthetic fixture only; no tenant connection",
+      "Notes": []
+    },
+    "Entra.OAuthUser": {
+      "Items": [
+        {
+          "id": "grant-1",
+          "principalId": "11111111-1111-4111-8111-111111111111",
+          "clientId": "synthetic-app",
+          "resourceId": "synthetic-graph",
+          "scope": "Mail.Read offline_access",
+          "consentType": "Principal"
+        }
+      ],
+      "Status": "Collected",
+      "Reason": "Synthetic fixture only; no tenant connection",
+      "Notes": []
+    },
+    "Entra.OAuthTenant": {
+      "Items": [],
+      "Status": "Denied",
+      "Reason": "Synthetic directory-wide grant read denied",
+      "Notes": []
+    },
+    "Entra.Risks": {
+      "Items": [
+        {
+          "id": "risk-1",
+          "detectedDateTime": "2026-11-10T09:11:00Z",
+          "userPrincipalName": "alex@contoso.example",
+          "userId": "11111111-1111-4111-8111-111111111111",
+          "ipAddress": "203.0.113.17",
+          "riskEventType": "unfamiliarFeatures",
+          "riskLevel": "medium",
+          "riskState": "atRisk"
+        }
+      ],
+      "Status": "Collected",
+      "Reason": "Synthetic fixture only; no tenant connection",
+      "Notes": []
+    },
+    "Defender.UrlClicks": {
+      "Items": [
+        {
+          "Timestamp": "2026-11-10T09:05:00Z",
+          "AccountUpn": "alex@contoso.example",
+          "Url": "https://login.attacker.example/path?x=<script>",
+          "ActionType": "ClickAllowed",
+          "Workload": "Email",
+          "NetworkMessageId": "22222222-2222-4222-8222-222222222222",
+          "IPAddress": "203.0.113.17",
+          "IsClickedThrough": false,
+          "ReportId": "click-1"
+        },
+        {
+          "Timestamp": "2026-11-10T09:06:00Z",
+          "AccountUpn": "alex@contoso.example",
+          "Url": "https://other.example/",
+          "ActionType": "ClickBlocked",
+          "Workload": "Office",
+          "NetworkMessageId": "00000000-0000-0000-0000-000000000000",
+          "IsClickedThrough": true,
+          "ReportId": "click-2"
+        }
+      ],
+      "Status": "Collected",
+      "Reason": "Synthetic fixture only; no tenant connection",
+      "Notes": []
+    },
+    "Defender.Email": {
+      "Items": [
+        {
+          "Timestamp": "2026-11-10T09:00:00Z",
+          "NetworkMessageId": "22222222-2222-4222-8222-222222222222",
+          "InternetMessageId": "<synthetic-001@sender.example>",
+          "SenderFromAddress": "billing@sender.example",
+          "RecipientEmailAddress": "alex@contoso.example",
+          "Subject": "=HYPERLINK(\"https://evil.example/a\",\"invoice\") <script>alert(1)</script>",
+          "DeliveryAction": "Delivered",
+          "DeliveryLocation": "Inbox/Folder",
+          "ThreatTypes": "Phish"
+        }
+      ],
+      "Status": "Collected",
+      "Reason": "Synthetic fixture only; no tenant connection",
+      "Notes": []
+    },
+    "Defender.PostDelivery": {
+      "Items": [
+        {
+          "Timestamp": "2026-11-10T09:40:00Z",
+          "NetworkMessageId": "22222222-2222-4222-8222-222222222222",
+          "InternetMessageId": "<synthetic-001@sender.example>",
+          "ActionType": "Phish ZAP",
+          "ActionResult": "Success",
+          "RecipientEmailAddress": "alex@contoso.example",
+          "DeliveryLocation": "Quarantine",
+          "ReportId": "post-1"
+        }
+      ],
+      "Status": "Collected",
+      "Reason": "Synthetic fixture only; no tenant connection",
+      "Notes": []
+    },
+    "Defender.Alerts": {
+      "Items": [],
+      "Status": "Unavailable",
+      "Reason": "Synthetic licensing/table unavailable; absence is not absence of alerts",
+      "Notes": []
+    }
+  }
+}
