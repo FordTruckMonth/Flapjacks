@@ -9,6 +9,8 @@ $parse=@(Get-ChildItem $root -Recurse -File | Where-Object {$_.Extension -in @('
 })
 if($parse.Count){throw 'Native parser errors'}
 $subtests=@(
+ @{Name='authentication-display';Path="$root/tests/Test-AuthenticationDisplay.ps1";Parameters=@{ResultsPath=(Join-Path $EvidenceRoot 'authentication-display.json')}},
+ @{Name='mailbox-snapshot';Path="$root/tests/Test-MailboxSnapshot.ps1";Parameters=@{ResultsPath=(Join-Path $EvidenceRoot 'mailbox-snapshot.json')}},
  @{Name='prerequisites';Path="$root/tests/Test-Prerequisites.ps1";Parameters=@{ResultsPath=(Join-Path $EvidenceRoot 'prerequisites.json')}},
  @{Name='toolkit';Path="$root/tests/Test-Toolkit.ps1";Parameters=@{ResultsPath=(Join-Path $EvidenceRoot 'toolkit.json')}},
  @{Name='logs';Path="$root/Logs/tests/Test-All.ps1";Parameters=@{EvidenceRoot=(Join-Path $EvidenceRoot 'logs')}},
@@ -29,6 +31,8 @@ $gates=Get-Content (Join-Path $EvidenceRoot 'audit-gates.txt') -Raw
 $auditCount=[int]([regex]::Match($audit,'PASS: (\d+) offline assertions').Groups[1].Value)
 $gateCount=[int]([regex]::Match($gates,'PASS: (\d+)').Groups[1].Value)
 if($auditCount -lt 150 -or $gateCount -lt 45){throw 'Could not confirm audit test counts'}
-$summary=[pscustomobject]@{Passed=$true;PowerShell=$PSVersionTable.PSVersion.ToString();NativeParser='Passed';ToolkitChecks=$toolkit.Checks;PrerequisiteChecks=$prerequisites.PrerequisiteChecks;LogsChecks=$logs.LogsChecks;OriginalHelperScenarios=$logs.OriginalHelperScenarios;OriginalHelperAssertions=$logs.OriginalHelperAssertions;PagerCases=$logs.PagerCases;AuditAssertions=$auditCount;AuditTerminalGateAssertions=$gateCount;LiveTenantTested=$false;Authentication='Mocks only';EvidenceRoot=$EvidenceRoot}
+$snapshot=Get-Content (Join-Path $EvidenceRoot 'mailbox-snapshot.json') -Raw | ConvertFrom-Json
+$authDisplay=Get-Content (Join-Path $EvidenceRoot 'authentication-display.json') -Raw | ConvertFrom-Json
+$summary=[pscustomobject]@{AuthenticationDisplayChecks=$authDisplay.Checks;MailboxSnapshotChecks=$snapshot.Checks;Passed=$true;PowerShell=$PSVersionTable.PSVersion.ToString();NativeParser='Passed';ToolkitChecks=$toolkit.Checks;PrerequisiteChecks=$prerequisites.PrerequisiteChecks;LogsChecks=$logs.LogsChecks;OriginalHelperScenarios=$logs.OriginalHelperScenarios;OriginalHelperAssertions=$logs.OriginalHelperAssertions;PagerCases=$logs.PagerCases;AuditAssertions=$auditCount;AuditTerminalGateAssertions=$gateCount;LiveTenantTested=$false;Authentication='Mocks only';EvidenceRoot=$EvidenceRoot}
 $summary | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $EvidenceRoot 'summary.json')
 $summary

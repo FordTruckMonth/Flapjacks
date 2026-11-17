@@ -20,23 +20,21 @@ function Invoke-ToolkitAuditWorkflow {
     Write-ToolkitText $Runtime ('Tenant: '+$TenantId+' | Operator: '+(ConvertTo-ToolkitText $Account))
     Write-ToolkitText $Runtime 'Component sessions: Graph for identity/configuration reads; Exchange for messaging policies; Purview requires an existing approved matching session. Missing components remain independent coverage gaps.'
     Write-ToolkitText $Runtime 'Includes Conditional Access, identity/consent policies, roles, limited Intune metadata, Exchange protection and selected Purview settings. No writes or content collection. Missing privileges/licensing remain explicit gaps.'
-    $confirm=Read-ToolkitInput $Runtime ('Type AUDIT '+$TenantId+' to confirm this exact tenant')
-    if($confirm -cne ('AUDIT '+$TenantId)){Write-ToolkitText $Runtime 'Audit canceled before authentication changes, queries or file creation.';return}
-    $scope=Read-ToolkitInput $Runtime 'Confirm you are authorized for these organization-wide configuration reads (Y/N) [N]'
-    if($scope -ine 'Y'){Write-ToolkitText $Runtime 'Audit canceled before authentication changes, queries or file creation.';return}
-    $output=Get-ToolkitEvidenceRoot $Runtime 'audit'
-    if($Mode -eq 'Live'){
-        Request-ToolkitGraphScopes $Runtime $TenantId $Account -Scopes @($plan.GraphReadPermissions)
-        Request-ToolkitExchangeSession $Runtime $TenantId $Account
-        Write-ToolkitText $Runtime 'Purview uses an existing same-account/same-tenant session only. No documented device-code switch is available; unavailable Purview sources are skipped.'
-        Assert-ToolkitPrimarySession $Runtime $TenantId $Account $PrimaryService
-    }
+    Write-ToolkitText $Runtime ('Graph read permissions used only if already present: '+($plan.GraphReadPermissions -join ', '))
+    Write-ToolkitText $Runtime 'Uses existing matching sessions only. Missing scopes/modules/providers are skipped and reported. No new sign-in, consent, scope expansion or automatic files.'
+    $confirm=Read-ToolkitInput $Runtime 'Type AUDIT to authorize these organization-wide reads for the displayed tenant, or Enter to cancel'
+    if($confirm -cne 'AUDIT'){Write-ToolkitText $Runtime 'Audit canceled before authentication changes, queries or file creation.';return}
+    if($Mode -eq 'Live'){Assert-ToolkitPrimarySession $Runtime $TenantId $Account $PrimaryService}
     $parameters=@{Mode=$Mode;TenantId=$TenantId;ExpectedAccount=$Account;ConfirmedTenantId=$TenantId;ConfirmOrganizationWide=$true}
-    if($output){$parameters.OutputPath=$output}
     # Injectable adapter seam is used only by offline tests; the standard runtime has none.
     $result=if($Runtime.ContainsKey('AuditRun')){& $Runtime.AuditRun $parameters}else{Invoke-M365OrganizationAudit @parameters}
     # Summary is generated locally from safe metadata, never raw terminal control sequences.
     Write-M365AuditSummary -Result $result
+    $gaps=@($result.Coverage | Where-Object {$_.Status -notin @('Collected','NotSelected')})
+    if($gaps.Count){
+        $groups=@($gaps | Group-Object Status | ForEach-Object {$_.Name+': '+$_.Count})
+        Write-ToolkitText $Runtime ('Coverage gaps ('+$gaps.Count+'): '+($groups -join '; ')+'. View @coverage for source-level reasons; unknown is not a pass.')
+    }
     return $result
 }
 function Invoke-ToolkitLogsWorkflow {
@@ -65,19 +63,15 @@ function Invoke-ToolkitLogsWorkflow {
     if($answer -ine 'Y'){Write-ToolkitText $Runtime 'Mailbox collection canceled before queries or permission requests.';return}
     $defender=(Read-ToolkitInput $Runtime 'Include target-filtered Defender hunting metadata if already licensed/approved? Y/N [N]') -ieq 'Y'
     $preview=(Read-ToolkitInput $Runtime 'Include explicitly approved beta non-interactive USER sign-ins? Y/N [N]') -ieq 'Y'
-    $output=Get-ToolkitEvidenceRoot $Runtime 'mailboxes'
+    # Results remain in memory; saving is a separate explicit menu action.
     if($Mode -eq 'Live'){
-        $scopes=@('AuditLog.Read.All','Directory.Read.All','IdentityRiskEvent.Read.All')
-        if($defender){$scopes+='ThreatHunting.Read.All'}
-        Request-ToolkitGraphScopes $Runtime $TenantId $Account -Scopes $scopes
-        Request-ToolkitExchangeSession $Runtime $TenantId $Account
+        Write-ToolkitText $Runtime 'Uses existing matching Graph/Exchange sessions only. Missing scopes/providers remain source-level gaps; no reconnect or consent request.'
         Assert-ToolkitPrimarySession $Runtime $TenantId $Account $PrimaryService
     }
     $results=[Collections.Generic.List[object]]::new()
     foreach($target in $targets){
         try{
             $parameters=@{TargetUpn=$target;Start=$window.Start;End=$window.End;Mode=$(if($Mode -eq 'Synthetic'){'Fixture'}else{'Live'});FixturePath=(Join-Path $script:ToolkitRoot 'Logs/fixtures/bec-synthetic.json');ProjectRoot=$script:ToolkitRoot;IncludeDefender=$defender;IncludeNonInteractivePreview=$preview}
-            if($output){$parameters.OutputRoot=$output}
             if($Mode -eq 'Live'){
                 # Each mailbox receives an isolated, bound transport and independent request log.
                 $transport=New-ToolkitMailboxTransport $Runtime $TenantId $Account $target
@@ -97,17 +91,23 @@ function Invoke-M365Terminal {
     [CmdletBinding()]
     param([ValidateSet('Live','Synthetic')][string]$Mode='Live',[hashtable]$Runtime)
     if(-not $Runtime){$Runtime=New-ToolkitRuntime}
-    Write-ToolkitText $Runtime 'M365 TERMINAL TOOLKIT | PowerShell 7.4+ | Read-only review build'
-    Write-ToolkitText $Runtime 'No localhost, local listener, browser launch or HTML UI. All workflow and triage are in this terminal; optional evidence is local JSON/CSV.'
+    Write-ToolkitText $Runtime 'FLAPJACKS | PowerShell 7.4+ | Read-only review build'
+    Write-ToolkitText $Runtime 'No localhost, local listener, browser launch or HTML UI. All workflow and triage are in this terminal; explicit menu S saves the latest in-memory result as local JSON.'
     Write-ToolkitText $Runtime 'Admin means an approved operator with scoped READ roles, not a request for Global Administrator. No automatic consent, escalation, remediation or external uploads.'
     Write-ToolkitText $Runtime 'Official device-code authentication still requires approval on a Microsoft web page using an approved browser/device. Tenant policy can block it; this app will not bypass that restriction.'
+    $pendingAction=''
     if($Mode -eq 'Synthetic'){
         $tenant=[guid]'11111111-2222-3333-4444-555555555555';$account='operator@contoso.example';$primary='Graph'
         Write-ToolkitText $Runtime 'SYNTHETIC MODE: no real sign-in, tenant or mailbox. Authentication and providers are not exercised.'
     }else{
-        $choice=Read-ToolkitInput $Runtime 'G = Microsoft Graph device sign-in; E = Exchange Online device sign-in; R = reuse an existing session; Q = quit [G]'
+        Import-Module (Join-Path $script:ToolkitRoot 'Audit/M365SecurityAudit.psm1') -DisableNameChecking
+        $startupPlan=Get-M365OrganizationAuditPlan
+        Write-ToolkitText $Runtime ('Optional A = Graph Audit sign-in: tenant-wide configuration READ access: '+($startupPlan.GraphReadPermissions -join ', '))
+        Write-ToolkitText $Runtime 'Choose A only if this access is already approved. Stop at any new Microsoft consent request. It proceeds to the same tenant-bound AUDIT authorization; no reads occur before you approve. G is identity-only (User.Read), so configuration sources may be skipped. Existing Exchange/Purview sessions are never opened automatically.'
+        $choice=Read-ToolkitInput $Runtime 'G = Microsoft Graph identity-only device sign-in; A = Graph Audit approved-read sign-in; E = Exchange device sign-in; R = reuse; Q = quit [G]'
         if($choice -ieq 'Q'){return}
         if(-not $choice -or $choice -ieq 'G'){$resolved=Connect-ToolkitInitialSession $Runtime Graph}
+        elseif($choice -ieq 'A'){$resolved=Connect-ToolkitInitialSession $Runtime Graph -AuditReadAccess;$pendingAction='A'}
         elseif($choice -ieq 'E'){$resolved=Connect-ToolkitInitialSession $Runtime Exchange}
         elseif($choice -ieq 'R'){
             $provider=Read-ToolkitInput $Runtime 'Reuse G = Graph or E = Exchange session [G]'
@@ -118,25 +118,40 @@ function Invoke-M365Terminal {
         $tenant=$resolved.TenantId;$account=$resolved.Account;$primary=$resolved.Service
         Write-ToolkitText $Runtime ('Authenticated '+$primary+' operator: '+(ConvertTo-ToolkitText $account))
         Write-ToolkitText $Runtime ('Organization / tenant ID verified by '+$primary+': '+$tenant)
-        Write-ToolkitText $Runtime 'This context comes from the authenticated Microsoft session, not a typed tenant ID or inferred email domain. Every additional component must match this tenant and account. Action-specific permissions are deferred.'
-        $confirm=Read-ToolkitInput $Runtime 'Use this resolved account and organization? Y/N [N]'
-        if($confirm -ine 'Y'){Write-ToolkitText $Runtime 'Canceled before the action menu, additional sign-in, collection or evidence writes.';return}
+        Write-ToolkitText $Runtime 'This context comes from the authenticated Microsoft session, not a typed tenant ID or inferred email domain. Every additional component must match this tenant and account. Actions use existing approved access only; missing capabilities are reported, never silently expanded.'
         Assert-ToolkitPrimarySession $Runtime $tenant $account $primary
     }
     $history=[Collections.Generic.List[object]]::new()
     while($true){
-        $action=Read-ToolkitInput $Runtime 'A = Audit organization configuration; L = Pull Logs; V = view latest in-memory result; Q = quit'
+        if($pendingAction){$action=$pendingAction;$pendingAction=''}else{$action=Read-ToolkitInput $Runtime 'A = Audit organization configuration; L = Pull Logs; V = view latest result; S = save latest JSON; Q = quit'}
         if($action -ieq 'Q' -or -not $action){break}
         try{
             if($Mode -eq 'Live' -and $action -in @('A','L')){Assert-ToolkitPrimarySession $Runtime $tenant $account $primary}
             switch($action.ToUpperInvariant()){
                 'A' {$result=Invoke-ToolkitAuditWorkflow $Runtime $Mode $tenant $account -PrimaryService $primary;if($null -ne $result){$history.Add($result)}}
                 'L' {$result=Invoke-ToolkitLogsWorkflow $Runtime $Mode $tenant $account -PrimaryService $primary;if($null -ne $result){$history.Add($result)}}
+                'S' {if($history.Count){Save-ToolkitResult $history[$history.Count-1] $Runtime}else{Write-ToolkitText $Runtime 'No in-memory result to save.'}}
                 'V' {if($history.Count){Show-ToolkitResult $history[$history.Count-1] $Runtime}else{Write-ToolkitText $Runtime 'No in-memory result to inspect.'}}
-                default {Write-ToolkitText $Runtime 'Choose A, L, V or Q. No action performed.'}
+                default {Write-ToolkitText $Runtime 'Choose A, L, V, S or Q. No action performed.'}
             }
         }catch{Write-ToolkitText $Runtime ('Action stopped safely: '+(ConvertTo-ToolkitText $_.Exception.Message)+'. No fallback or permission grant was attempted.')}
     }
     Write-ToolkitText $Runtime 'Finished. Unsaved in-memory results are no longer available after process exit. Existing Microsoft sessions were not disconnected or modified by cleanup.'
     return ,$history.ToArray()
+}
+
+function Save-ToolkitResult {
+    param([Parameter(Mandatory)]$Result,[Parameter(Mandatory)][hashtable]$Runtime)
+    Write-ToolkitText $Runtime 'Save the latest existing result only; no new collection. JSON may contain sensitive identities, policy targeting and mailbox metadata. Use approved private local storage; no encryption or permission changes are provided.'
+    $path=Read-ToolkitInput $Runtime 'New local JSON file path (existing private directory), or Enter to cancel'
+    if(-not $path){Write-ToolkitText $Runtime 'Save canceled; no file created.';return}
+    $full=[IO.Path]::GetFullPath($path);$parent=[IO.Path]::GetDirectoryName($full)
+    if(-not [IO.Directory]::Exists($parent)){throw 'Choose an existing private local directory.'}
+    for($p=$parent;$p;$p=[IO.Path]::GetDirectoryName($p)){
+        if(([IO.File]::GetAttributes($p) -band [IO.FileAttributes]::ReparsePoint) -ne 0){throw 'Symlink/reparse export directory refused.'}
+    }
+    $json=ConvertTo-Json -InputObject $Result -Depth 100 -WarningAction Stop
+    $stream=[IO.File]::Open($full,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+    try{$bytes=[Text.UTF8Encoding]::new($false).GetBytes($json);$stream.Write($bytes,0,$bytes.Length)}finally{$stream.Dispose()}
+    Write-ToolkitText $Runtime ('Saved local JSON: '+$full)
 }

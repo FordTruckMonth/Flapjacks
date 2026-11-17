@@ -1,3 +1,10 @@
+function Invoke-ToolkitAuthenticationCommand {
+    # Device-code instructions may be emitted on the success stream. Render them
+    # immediately at this boundary, before callers capture the resolved session.
+    # Never collect, persist, parse, or forward authentication output as result data.
+    param([Parameter(Mandatory)]$Command,[Parameter(Mandatory)][hashtable]$Parameters)
+    & $Command @Parameters -ErrorAction Stop | Out-Host
+}
 function New-ToolkitRuntime {
     @{Read={param($prompt)Read-Host $prompt};Write={param($text)Write-Host $text};
       Local={param($command,$parameters)
@@ -11,7 +18,9 @@ function New-ToolkitRuntime {
         $name=if($service -eq 'Graph'){'Microsoft.Graph.Authentication\Connect-MgGraph'}else{'ExchangeOnlineManagement\Connect-ExchangeOnline'}
         $command=Get-Command $name -ErrorAction Stop
         foreach($key in $parameters.Keys){if(-not $command.Parameters.ContainsKey($key)){throw 'Installed Microsoft module lacks required device-code parameters; no fallback attempted.'}}
-        & $command @parameters -ErrorAction Stop | Out-Null
+        $connectParameters=$parameters.Clone()
+        if($service -eq 'Graph' -and $command.Parameters.ContainsKey('NoWelcome')){$connectParameters.NoWelcome=$true}
+        Invoke-ToolkitAuthenticationCommand -Command $command -Parameters $connectParameters
       };
       ReadCommand={param($command,$parameters,$session)
         if($command -eq 'Get-MgContext'){return Microsoft.Graph.Authentication\Get-MgContext -ErrorAction Stop}
@@ -88,13 +97,19 @@ function Connect-ToolkitDevice {
     }
 }
 function Connect-ToolkitInitialSession {
-    param([hashtable]$Runtime,[ValidateSet('Graph','Exchange')][string]$Service)
+    param([hashtable]$Runtime,[ValidateSet('Graph','Exchange')][string]$Service,[switch]$AuditReadAccess)
     if($Service -eq 'Exchange'){return Connect-ToolkitDevice $Runtime Exchange}
     Write-ToolkitText $Runtime 'Microsoft will show a device code and approval URL. Complete sign-in/MFA on an approved Microsoft page using a browser/device. No browser is launched and no password is collected here.'
-    Write-ToolkitText $Runtime 'Initial Graph sign-in uses only User.Read. If new consent or Conditional Access blocks access, stop; no grant or fallback is performed.'
+    $scopes=@('User.Read')
+    if($AuditReadAccess){
+        Import-Module (Join-Path $script:ToolkitRoot 'Audit/M365SecurityAudit.psm1') -DisableNameChecking
+        $scopes=@((Get-M365OrganizationAuditPlan).GraphReadPermissions)
+        Write-ToolkitText $Runtime ('Explicit Graph Audit sign-in uses only the displayed already-approved read access: '+($scopes -join ', '))
+    }else{Write-ToolkitText $Runtime 'Identity-only Graph sign-in uses User.Read; Audit sources needing other permissions will be skipped.'}
+    Write-ToolkitText $Runtime 'If Microsoft requests NEW consent or Conditional Access blocks access, STOP. No grant, automatic expansion or fallback is performed.'
     # TenantId is optional in this documented delegated parameter set. The authenticated
     # context, not an operator-entered GUID or inferred email domain, supplies the tenant.
-    & $Runtime.Connect 'Graph' @{UseDeviceCode=$true;ContextScope='Process';Scopes=@('User.Read')}
+    & $Runtime.Connect 'Graph' @{UseDeviceCode=$true;ContextScope='Process';Scopes=$scopes}
     return Resolve-ToolkitGraphContext $Runtime
 }
 function Assert-ToolkitPrimarySession {

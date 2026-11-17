@@ -136,15 +136,16 @@ Each scope is an alternative supported read permission; the first is least privi
 
 - Group: Exchange; provider: Exchange.
 - Request: `Get-OrganizationConfig`.
-- Selected fields: `Identity`, `OAuth2ClientProfileEnabled`, `AuditDisabled`, `DefaultAuthenticationPolicy`, `AutoExpandingArchiveEnabled`.
+- Selected fields: `Identity`, `OAuth2ClientProfileEnabled`, `AuditDisabled`, `DefaultAuthenticationPolicy`, `AutoExpandingArchiveEnabled`, `RejectDirectSend`.
 - Limit: Selected organization settings only; no mailbox collection.
 - [Microsoft contract](https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-organizationconfig?view=exchange-ps)
+- `RejectDirectSend` belongs to organization configuration, not transport configuration. Source corrected on 2026-11-16 using [Microsoft Exchange Team GA guidance](https://techcommunity.microsoft.com/blog/exchange/reject-direct-send-now-generally-available-in-exchange-online/4573787). An explicitly returned Boolean false is retained; a missing property remains Partial/unknown, never inferred false. This read-only projection change adds no command or permission.
 
 ## exchange-transport
 
 - Group: Exchange; provider: Exchange.
 - Request: `Get-TransportConfig`.
-- Selected fields: `Identity`, `SmtpClientAuthenticationDisabled`, `ExternalPostmasterAddress`, `RejectDirectSend`, `InternalSMTPServers`.
+- Selected fields: `Identity`, `SmtpClientAuthenticationDisabled`, `ExternalPostmasterAddress`, `InternalSMTPServers`.
 - Limit: Selected transport settings only.
 - [Microsoft contract](https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-transportconfig?view=exchange-ps)
 
