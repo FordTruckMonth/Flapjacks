@@ -41,6 +41,43 @@ Export a single-mailbox **current** rules/forwarding/delegation snapshot using t
 
 No automatic elevation, trust/execution-policy change, sign-in or consent. Debian Exchange support is not claimed and its Exchange install is skipped; Purview is unavailable on macOS/Linux. Missing components remain explicit coverage gaps. Synthetic mode needs only PowerShell. See the setup guide before installing.
 
+## Permissions and access requirements
+
+**Synthetic mode needs no Microsoft account, Graph consent, tenant role or Microsoft module.** Live mode requires separately authorized access for the selected workflow. Installing modules, having a license, signing in, receiving Graph scopes, and holding workload roles are different requirements. This section describes the terminal launcher; the preserved legacy workflow below has broader collection boundaries.
+
+### Microsoft Graph: identity is not Audit access
+
+Use a delegated work/school operator in the Microsoft **Global** cloud. Personal Microsoft accounts, app-only authentication and other clouds are unsupported by this workflow. Startup **G** requests only `User.Read` for identity; it does not authorize configuration collection. Startup **A** explicitly requests this current combined Audit read-scope plan, shown before sign-in:
+
+| Delegated scope | Used by the current Audit plan |
+|---|---|
+| `Policy.Read.All` | Conditional Access, named locations, security defaults, authentication-method/strength policies and other identity policies |
+| `Policy.Read.PermissionGrant` | Consent permission-grant policy definitions, not existing application grants |
+| `RoleManagement.Read.Directory` | Directory role definitions, assignments and eligibility-instance reads |
+| `Domain.Read.All` | Tenant domain inventory |
+| `LicenseAssignment.Read.All` | Tenant subscription/SKU inventory, not proof of per-user licensing |
+| `DeviceManagementConfiguration.Read.All` | Intune compliance/configuration policy metadata; the permission itself is broader than the fields collected |
+
+The combined plan uses `Policy.Read.All` rather than also requesting `Policy.Read.AuthenticationMethod`, and `RoleManagement.Read.Directory` rather than also requesting `RoleEligibilitySchedule.Read.Directory`. These are the application's configured scopes, not a claim that every API requires all six. See the [exact source catalog](terminal/Audit/docs/SOURCES.md) and [permission plan](terminal/Audit/docs/PERMISSIONS.md).
+
+**Delegated scopes do not replace operator roles.** Supported roles differ by API: for example, [Conditional Access reads](https://learn.microsoft.com/en-us/graph/api/conditionalaccessroot-list-policies?view=graph-rest-1.0) support Security Reader or Global Reader; [authentication-method policy reads](https://learn.microsoft.com/en-us/graph/api/authenticationmethodspolicy-get?view=graph-rest-1.0) support Global Reader; [directory role-assignment reads](https://learn.microsoft.com/en-us/graph/api/rbacapplication-list-roleassignments?view=graph-rest-1.0) support Directory Readers or Global Reader. These are examples, not a universal role prescription. Have your administrator verify the exact source's existing role/custom-role access. Do not grant Global Administrator merely to eliminate gaps.
+
+### Exchange, Purview and mailbox workflows
+
+- **Exchange configuration Audit:** Graph scopes grant no Exchange cmdlet access. An approved Exchange session and RBAC permitting the selected `Get-*` cmdlets/parameters are required. Verify rights per [Microsoft's cmdlet-permission guidance](https://learn.microsoft.com/en-us/powershell/exchange/find-exchange-cmdlet-permissions?view=exchange-ps); a connected session alone does not prove all selected commands are available.
+- **Purview configuration Audit:** DLP/retention read access is separate workload RBAC. The app only reuses an already approved matching Security & Compliance session; it never calls `Connect-IPPSSession`. That service's [connection and RBAC requirements](https://learn.microsoft.com/en-us/powershell/exchange/connect-to-scc-powershell?view=exchange-ps) remain prerequisites. Audit-log reader access alone should not be assumed to cover configuration commands.
+- **Session binding:** Graph, Exchange and Purview must match the verified tenant/operator. Exchange/Purview need an active, unprefixed, unambiguous delegated-user REST session with command-origin metadata. Standard collection actions do not reconnect, activate roles or expand scopes. Keep separately established sessions in the same PowerShell process.
+- **Terminal Pull Logs:** separate from configuration Audit, its core Graph sources use `AuditLog.Read.All`, `Directory.Read.All` and `IdentityRiskEvent.Read.All`; opted-in Defender hunting also needs `ThreatHunting.Read.All`, supported roles/data access and licensed services. Target scoping does not narrow the token's tenant-wide privileges. Terminal mailbox collection does not fall back to tenant-wide UAL; the legacy investigator below can.
+- **Current-only mailbox snapshot:** requires no Graph scopes, but needs existing Exchange access to the four listed commands in the [snapshot guide](terminal/docs/MAILBOX-SNAPSHOT.md). [`Get-InboxRule`](https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-inboxrule?view=exchange-ps) is not available under Global Reader or View-Only Organization Management alone. Use administrator-approved scoped cmdlet rights, not a blanket elevation.
+
+### Runtime, licensing and safe failure
+
+Flapjacks requires PowerShell 7.4+; ExchangeOnlineManagement 3.10+ requires PowerShell 7.6+. Microsoft currently documents Security & Compliance PowerShell as unavailable on macOS/Linux; use a supported Windows host for those sources or retain the gaps. Exchange support must match the specific OS/runtime/module matrix, and this project's Debian installer intentionally skips Exchange. See [Microsoft's compatibility matrix](https://learn.microsoft.com/en-us/powershell/exchange/exchange-online-powershell-v2?view=exchange-ps) and the [project setup guide](terminal/docs/PREREQUISITES.md).
+
+Feature licensing is additional to access: Intune needs an active tenant license; Conditional Access/PIM/Identity Protection, Defender and Purview features have source-specific entitlements described in the [permission plan](terminal/Audit/docs/PERMISSIONS.md). A tenant SKU is not proof of an individual user's entitlement. A missing source or HTTP error does not by itself identify whether the cause is licensing, permissions, session state or service availability.
+
+Only request access already approved by your organization. **Stop at new consent requests or Conditional Access blocks.** No consent grant, app registration, password collection, security-setting change or automatic privileged fallback is performed. Denied, disconnected and unsupported sources stay explicit coverage gaps, never a clean security verdict.
+
 ## Legacy investigator (preserved)
 
 The original entrypoint and implementation remain unchanged for compatibility and reproducibility. The instructions below describe that **legacy** workflow, which writes a static HTML report and can perform broader tenant-context reads. New operators should use the terminal entrypoint above.
