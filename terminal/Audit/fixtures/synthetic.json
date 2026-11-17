@@ -532,5 +532,102 @@
     "Status": "Collected",
     "Reason": "Synthetic fixture, not tenant data.",
     "Items": []
+  },
+  "workbook-identity-registration": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": [
+      {
+        "id": "0b000000-0000-4000-8000-000000000001",
+        "isAdmin": true,
+        "isMfaRegistered": true,
+        "isSsprEnabled": true,
+        "isSsprRegistered": true,
+        "isSsprCapable": true,
+        "lastUpdatedDateTime": "2026-10-31T00:00:00Z"
+      },
+      {
+        "id": "0b000000-0000-4000-8000-000000000002",
+        "isAdmin": false,
+        "isMfaRegistered": false,
+        "isSsprEnabled": true,
+        "isSsprRegistered": false,
+        "isSsprCapable": false,
+        "lastUpdatedDateTime": "2026-10-31T00:00:00Z"
+      }
+    ]
+  },
+  "workbook-identity-users": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": [
+      {
+        "id": "0b000000-0000-4000-8000-000000000001",
+        "accountEnabled": true,
+        "signInActivity": {
+          "lastSuccessfulSignInDateTime": "2024-01-01T00:00:00Z"
+        }
+      },
+      {
+        "id": "0b000000-0000-4000-8000-000000000002",
+        "accountEnabled": true,
+        "signInActivity": {
+          "lastSuccessfulSignInDateTime": null
+        }
+      },
+      {
+        "id": "0b000000-0000-4000-8000-000000000003",
+        "accountEnabled": false,
+        "signInActivity": {
+          "lastSuccessfulSignInDateTime": null
+        }
+      }
+    ]
+  },
+  "exchange-unified-audit-config": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": [
+      {
+        "Identity": "Synthetic audit configuration",
+        "UnifiedAuditLogIngestionEnabled": true
+      }
+    ]
+  },
+  "exchange-external-sender-tagging": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": [
+      {
+        "Identity": "Synthetic sender tag configuration",
+        "Enabled": true,
+        "AllowList": []
+      }
+    ]
+  },
+  "exchange-connection-filter-policies": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": [
+      {
+        "Identity": "Synthetic default connection filter",
+        "Name": "Default",
+        "IPAllowList": [],
+        "IPBlockList": [],
+        "EnableSafeList": false
+      }
+    ]
+  },
+  "workbook-sharepoint-settings": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": [
+      {
+        "sharingCapability": "externalUserSharingOnly",
+        "sharingDomainRestrictionMode": "none",
+        "isRequireAcceptingUserToMatchInvitedUserEnabled": true,
+        "isResharingByExternalUsersEnabled": false
+      }
+    ]
   }
 }

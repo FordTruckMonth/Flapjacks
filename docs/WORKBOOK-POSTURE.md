@@ -1,0 +1,115 @@
+# Workbook-informed posture expansion
+
+Documentation review: 2026-11-17. This is a bounded, original implementation informed by selected workbook themes, not a reproduction of a customer's workbook or a claim of workbook parity. Microsoft documentation explains the evidence; the selected expectations are Flapjacks review choices.
+
+The default Audit plans 46 sources and emits five setting rows. The optional Workbook profile plans 55 sources and emits 80 rows, including ten offline collaboration rows that remain unassessed. These are inventory and assessment counts, not a posture score.
+
+## Scope and evidence states
+
+The existing five-setting baseline remains separate from the optional workbook additions. A source successfully returning data is not a control pass. `Meets selected setting` means only that the documented field comparison succeeded on sufficient saved evidence. It does not mean the tenant is secure, the policy applies to every user, or a framework outcome is achieved.
+
+Keep these states distinct:
+
+- **Saved evidence evaluation:** local rules consume the supplied records. They do not authenticate, recollect, activate roles, grant consent, or remediate.
+- **Synthetic validation:** invented records exercise rule and failure paths. They are not Microsoft tenant observations.
+- **Live-capable collector:** a read implementation exists, but actual access, session behavior, licensing, service responses, and policy effectiveness remain unverified until an explicitly authorized tenant run.
+- **Offline/unverified collaboration snapshot:** separately supplied Teams or SharePoint data is review material, not independently verified live collection. Missing provenance is not repaired by copying the Graph account or tenant into it.
+
+No live tenant run is part of this expansion's development acceptance. Never relabel an earlier snapshot or a synthetic pass as a new live acceptance.
+
+## Existing baseline: five controls, unchanged in purpose
+
+| Control ID | Selected comparison | Important boundary |
+|---|---|---|
+| `EXO-AUDIT` | Organization `AuditDisabled = false` | Mailbox auditing default only, not unified audit ingestion, event delivery, retention, or mailbox exceptions. |
+| `EXO-DIRECT-SEND` | Organization `RejectDirectSend = true` | Does not establish safe connectors or mail flow. Review approved application/device exceptions before changing anything. |
+| `EXO-SMTP-AUTH` | Organization `SmtpClientAuthenticationDisabled = true` | Mailbox overrides and other authentication controls can change effective access. |
+| `ENTRA-APP-REG` | Default-role `allowedToCreateApps = false` | Does not evaluate explicit role assignments, application consent, or existing application risk. |
+| `EOP-FILE-FILTER` | Returned malware policies have `EnableFileFilter = true` | Does not evaluate targeting, rule priority, exceptions, filter contents, or delivered-message protection. |
+
+The executable baseline is [Posture.ps1](../terminal/Audit/src/Posture.ps1). Existing configuration sources and permissions remain documented in [SOURCES.md](../terminal/Audit/docs/SOURCES.md) and [PERMISSIONS.md](../terminal/Audit/docs/PERMISSIONS.md); those documents are not evidence that the optional workload below was collected.
+
+## Selected additions, not complete workbook coverage
+
+The optional `WorkbookIdentity` group covers administrator/nonadministrator MFA registration, SSPR registration/capability, and a 90-day successful-sign-in review. The optional `WorkbookExchange` group covers unified audit ingestion, native Outlook external-sender identification, connection-filter exceptions, spoof-intelligence configuration, and an explicitly selected [Microsoft mail-policy baseline comparison](MAIL-BASELINE.md). `WorkbookCollaboration` distinguishes a limited SharePoint Graph read from offline/unverified Teams and SharePoint PowerShell evidence.
+
+These groups must be deliberately selected. A default baseline run must not silently expand to tenant user records or new workloads. Missing approvals, scopes, modules, delegated roles, or verified sessions remain gaps. No automatic connection, consent request, module installation, role activation, or configuration change is authorized by this document.
+
+### How the optional profile is selected and saved
+
+- Terminal **W** displays the workbook read plan and requires the exact `WORKBOOK` authorization for the displayed tenant/operator. **A** remains the existing configuration audit; startup sign-in does not silently request workbook scopes.
+- The API's `Invoke-M365OrganizationAudit -Workbook` explicitly selects this profile, while retaining its live tenant/account and organization-authorization gates. `-WorkbookAntiPhishBaseline Standard` or `Strict` selects the threshold comparison; the default is `None`. Terminal W displays and uses the Standard comparison; API callers can explicitly select Standard or Strict with the equivalent `-WorkbookMailBaseline` alias.
+- `-WorkbookCollaborationSnapshot $parsedEnvelope` accepts already parsed, explicitly selected supplemental data only with the workbook profile. The envelope contains a `Sources` array; records use `SourceId`, `Status`, `Count`, `CollectedAtUtc`, and `Items`. Only the three offline source IDs below are accepted. Unknown/duplicate IDs are rejected and only allowed fields are projected. Supplied commands or tenant/account/provenance labels are not executed or accepted as verification. This is not an automatic file-discovery/import mechanism.
+- Terminal **P** saves the existing result as `Posture-Report.pdf`, `Posture-Report.xlsx`, `Posture-Report.csv`, and supporting local JSON evidence. It does not recollect. The PDF, workbook Controls worksheet, and presentation CSV use the same control rows, including status, details, rationale, and access/licensing prerequisites. Coverage is separate from control assessment. Saving does not upload or change sharing permissions.
+
+### Identity evidence and prerequisites
+
+| Evidence | Approved read workload and prerequisites | What the evidence supports, and does not support |
+|---|---|---|
+| MFA and SSPR registration report | `GET /v1.0/reports/authenticationMethods/userRegistrationDetails`; approved `AuditLog.Read.All` and an applicable delegated role, such as Reports Reader, Security Reader, or Global Reader. Authentication Methods Activity has Entra ID P1/P2 licensing requirements. [Graph operation](https://learn.microsoft.com/en-us/graph/api/authenticationmethodsroot-list-userregistrationdetails?view=graph-rest-1.0), [licensing and roles](https://learn.microsoft.com/en-us/entra/identity/authentication/howto-authentication-methods-activity). | The report excludes disabled users. `isAdmin` is the report's administrator classification, not a complete transitive/effective privilege inventory. The population and missing records must remain visible. |
+| User account state and successful activity | `GET /v1.0/users` selects `id`, `accountEnabled`, and `signInActivity`. Use approved `User.Read.All` or `Directory.Read.All`, plus `AuditLog.Read.All`; sign-in activity requires Entra ID P1/P2. Selecting activity limits a page to at most 500 users. [List users](https://learn.microsoft.com/en-us/graph/api/user-list?view=graph-rest-1.0). | This is selected directory metadata, not downloading sign-in events, mail content, or credentials. Follow all pages within declared bounds; a truncated or failed read is not a complete tenant assessment. |
+
+`isMfaRegistered` means a strong method is registered, even if policy does not permit that method. Microsoft's separate `isMfaCapable` field additionally requires an allowed method, but is not collected by this slice. Neither proves a sign-in requires MFA. Likewise, SSPR enabled, registered, and capable are different fields; a recovery-capability result does not prove a successful reset or effective policy targeting. Preserve false, null, missing, and malformed values as different cases. [Registration field definitions](https://learn.microsoft.com/en-us/graph/api/resources/userregistrationdetails?view=graph-rest-1.0).
+
+The two source IDs are `workbook-identity-registration` and `workbook-identity-users`. Registration selects only `id`, `isAdmin`, `isMfaRegistered`, `isSsprEnabled`, `isSsprRegistered`, `isSsprCapable`, and `lastUpdatedDateTime`. Its selected-field query has not been exercised against a live service; this release does not fall back to an unprojected data collection. Before assessing a registration denominator, returned IDs must reconcile with the enabled directory population. SSPR checks apply only to users whose `isSsprEnabled` is true. Five checks are emitted: `ENTRA-MFA-ADMIN-REG`, `ENTRA-MFA-USER-REG`, `ENTRA-SSPR-REG`, `ENTRA-SSPR-CAPABLE`, and `ENTRA-DORMANT-ACCOUNTS`.
+
+The dormant-account review uses `lastSuccessfulSignInDateTime`, which includes successful interactive and noninteractive use. `lastSignInDateTime` and `lastNonInteractiveSignInDateTime` include failed attempts and are not safe substitutes. Successful activity was introduced in December 2023 without historical backfill: a missing timestamp is unknown, not proof that an account was never used. The 90-day cutoff is this profile's review threshold, not a universal Microsoft requirement or authorization to disable an account. Service/shared accounts and approved exceptions need human review. [Activity semantics](https://learn.microsoft.com/en-us/graph/api/resources/signinactivity?view=graph-rest-1.0).
+
+### Exchange evidence and prerequisites
+
+All rows require an already approved, matching Exchange Online session and Exchange RBAC for the exact read cmdlet. Graph scopes do not grant Exchange rights. Prefer the organization's permitted view-only roles; cmdlet availability must be checked, not inferred from a role's name. Microsoft provides a [cmdlet-permission discovery procedure](https://learn.microsoft.com/en-us/powershell/exchange/find-exchange-cmdlet-permissions?view=exchange-ps). This package must not elevate the operator to work around a denial.
+
+| Read command / field | Supported review | Explicit limit |
+|---|---|---|
+| `Get-AdminAuditLogConfig` / `UnifiedAuditLogIngestionEnabled` | Whether unified audit ingestion is configured on. | Run only through Exchange Online. Security & Compliance PowerShell exposes the same command but always reports this property as false. An enabled flag is not proof of events, coverage, delay, retention, or audit-search entitlement. [Microsoft command contract](https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-adminauditlogconfig?view=exchange-ps). |
+| `Get-ExternalInOutlook` / `Enabled`, `AllowList` | Native external-sender tag configuration and exemptions. | Exempt senders/domains do not receive the tag. This is client presentation, not anti-spoofing or transport enforcement. Other banner rules and supported clients require separate review. [Read contract](https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-externalinoutlook?view=exchange-ps). |
+| `Get-HostedConnectionFilterPolicy` / `IPAllowList`, `IPBlockList`, `EnableSafeList` | Review inbound SMTP filtering exceptions and selected bypass settings. | Allowlisting skips spam filtering, not all protection. A zero-entry blocklist does not establish weak security, and an exception is not automatically malicious. No IP attribution or observed-delivery claim is made. [Read contract](https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-hostedconnectionfilterpolicy?view=exchange-ps), [filter behavior](https://learn.microsoft.com/en-us/defender-office-365/connection-filter-policies-configure). |
+| `Get-AntiPhishPolicy` / `EnableSpoofIntelligence` | Whether the selected setting is enabled in returned policies. | Stored flags do not prove active targeting, priority, exceptions, or effective protection. This is not SPF/DKIM/DMARC validation, impersonation protection, or a search for spoofed messages. [Read contract](https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-antiphishpolicy?view=exchange-ps), [spoof intelligence context](https://learn.microsoft.com/en-us/defender-office-365/anti-spoofing-spoof-intelligence). |
+
+Cloud-mail protection availability and advanced Defender capabilities are distinct. Do not infer a license or absence of a control from an empty result, missing command, or denied request.
+
+Three new source IDs are `exchange-unified-audit-config`, `exchange-external-sender-tagging`, and `exchange-connection-filter-policies`. Existing `exchange-antiphish-policies` supplies the last two controls. The seven added check IDs are `EXO-UNIFIED-AUDIT`, `EXO-EXTERNAL-TAG`, `EXO-EXTERNAL-TAG-EXCEPTIONS`, `EOP-CONNECTION-IP-ALLOW`, `EOP-CONNECTION-SAFE-LIST`, `EOP-SPOOF-INTELLIGENCE`, and `EOP-PHISH-THRESHOLD`.
+
+For `EOP-PHISH-THRESHOLD`, the evaluator's `AntiPhishBaseline` defaults to `None`, which leaves the result not assessed. An explicit `Standard` comparison accepts a valid integer threshold of 3 or 4; `Strict` accepts 4. Microsoft's guidance lists Standard as 3 and Strict as 4, and identifies these as Defender for Office 365 settings. Treating a more aggressive value as meeting the selected Standard minimum is this evaluator's rule, not an exact claim that Microsoft's Standard preset is configured. This does not activate a preset, prove recipient coverage, or validate licensing. [Microsoft recommended settings](https://learn.microsoft.com/en-us/defender-office-365/recommended-settings-for-eop-and-office365).
+
+### Collaboration: live-capable Graph versus unverified snapshots
+
+| Source ID | Evidence contract | Collection/assessment boundary |
+|---|---|---|
+| `workbook-sharepoint-settings` | Graph `/v1.0/admin/sharepoint/settings` selects `sharingCapability`, `sharingDomainRestrictionMode`, `isRequireAcceptingUserToMatchInvitedUserEnabled`, and `isResharingByExternalUsersEnabled`. | Requires already approved `SharePointTenantSettings.Read.All` and delegated Global Reader or SharePoint Administrator. Same Graph tenant/account binding applies. Live-capable, not live-accepted. [Graph read contract](https://learn.microsoft.com/en-us/graph/api/sharepointsettings-get?view=graph-rest-1.0). |
+| `workbook-teams-federation` | Saved `Get-CsTenantFederationConfiguration` fields `Identity`, `AllowFederatedUsers`, `AllowTeamsConsumer`, `AllowTeamsConsumerInbound`. | Offline/unverified only. Federation and consumer communication are distinct from guest team membership. [Command contract](https://learn.microsoft.com/en-us/powershell/module/microsoftteams/get-cstenantfederationconfiguration?view=teams-ps). |
+| `workbook-teams-client` | Saved `Get-CsTeamsClientConfiguration` fields `Identity`, `AllowGuestUser`. | Offline/unverified only. Guest-client configuration does not establish Entra B2B, SharePoint access, meeting, or effective user access. [Command contract](https://learn.microsoft.com/en-us/powershell/module/microsoftteams/get-csteamsclientconfiguration?view=teams-ps). |
+| `workbook-spo-tenant` | Saved `Get-SPOTenant` tenant/OneDrive sharing ceiling and link scope/role defaults, including the modern `CoreDefaultShareLink*` and `OneDriveDefaultShareLink*` properties and existing-access overrides. | Offline/unverified only. Default-link checks use modern workload-specific fields; missing or uninitialized values are not inferred from legacy `DefaultSharingLinkType` / `DefaultLinkPermission`. No effective site/workload inheritance is resolved. [Property definitions](https://learn.microsoft.com/en-us/powershell/module/microsoft.online.sharepoint.powershell/set-spotenant?view=sharepoint-ps). |
+
+Graph's sharing capability is a tenant ceiling, not an inventory of site/item permissions or active links. The invitation-account-match flag and external-resharing flag are separate controls. Domain restriction mode alone does not reveal allowed/blocked domain contents. The Graph schema does not supply the PowerShell default-link fields used here; do not invent equivalent Graph fields. [Graph property semantics](https://learn.microsoft.com/en-us/graph/api/resources/sharepointsettings?view=graph-rest-1.0).
+
+Offline collaboration comparisons are informational and remain `Not assessed`. They cannot become live passes merely because a saved value matches a selected expectation. `Get-SPOTenant` and Teams commands above describe the snapshot shape, not commands automatically executed by this build.
+
+The Graph check IDs are `WB-SPO-GRAPH-SHARING`, `WB-SPO-GRAPH-INVITATION`, and `WB-SPO-GRAPH-RESHARING`. The ten offline review rows are `WB-TEAMS-FEDERATION`, `WB-TEAMS-CONSUMER`, `WB-TEAMS-CONSUMER-INBOUND`, `WB-TEAMS-GUEST`, `WB-SPO-SHARING`, `WB-OD-SHARING`, `WB-SPO-DEFAULT-LINK`, `WB-OD-DEFAULT-LINK`, `WB-SPO-DEFAULT-ROLE`, and `WB-OD-DEFAULT-ROLE`. Conservative no-federation/no-guests, nonanonymous sharing, specific-people or existing-access link defaults, and view-role comparisons are selected review choices, not universal Microsoft prescriptions. Approved collaboration needs contextual review, not automatic disabling.
+
+## Tenant and operator binding
+
+Live collection requires the explicitly selected tenant, expected operator account, and organization-wide authorization. Recheck the service context before using it; matching display names, email suffixes, or a manually supplied tenant label are insufficient.
+
+- **Graph:** use the supported Graph context's delegated account, tenant, environment, and granted scopes. Refuse missing/ambiguous or app-only context for this delegated adapter. Do not decode stored tokens or inspect private caches. [Graph authentication commands](https://learn.microsoft.com/en-us/powershell/microsoftgraph/authentication-commands).
+- **Exchange:** supported `Get-ConnectionInformation` exposes `TenantID`, `UserPrincipalName`, connection/module identity, state, and `IsEopSession`. Bind the actual command to the approved Exchange session, not a same-named command from another service. UAL ingestion must not use a Purview/EOP session. [Connection metadata](https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-connectioninformation?view=exchange-ps).
+- **Teams:** a Graph session cannot attest a separate Teams session. `Connect-MicrosoftTeams` documents an authenticated account/tenant result, while `Get-CsTenant` describes the tenant, not the caller. This build does not establish a supported, current, same-account Teams live connector. Do not inspect module internals or invent a `Get-TeamsContext` contract. [Teams connection](https://learn.microsoft.com/en-us/powershell/module/microsoftteams/connect-microsoftteams?view=teams-ps), [tenant command](https://learn.microsoft.com/en-us/powershell/module/microsoftteams/get-cstenant?view=teams-ps).
+- **SharePoint PowerShell:** `Get-SPOTenant` requires a SharePoint Online administrator. An admin URL supplied to `Connect-SPOService`, or a successful settings read, is not independently sufficient proof of both tenant and signed-in account. Reconnecting replaces the context and is not permitted as an implicit verification step. This build has no verified live SharePoint PowerShell connector; its limited SharePoint Graph source uses Graph verification instead. [Tenant command](https://learn.microsoft.com/en-us/powershell/module/microsoft.online.sharepoint.powershell/get-spotenant?view=sharepoint-ps), [connection contract](https://learn.microsoft.com/en-us/powershell/module/microsoft.online.sharepoint.powershell/connect-sposervice?view=sharepoint-ps).
+
+Teams workload permissions are independent of Graph. Microsoft documents Teams Administrator for organization-wide settings and associated PowerShell controls; its Teams Reader description alone must not be treated as proof that every PowerShell command is authorized. Validate an approved least-privileged role against the exact command before a future live implementation. [Teams roles](https://learn.microsoft.com/en-us/microsoftteams/using-admin-roles).
+
+The SharePoint Graph source has its own separate read permission. Selecting collaboration review must not request new consent or replace an existing session to obtain it. An absent approved scope remains a coverage gap.
+
+## Microsoft and NIST mapping: evidence, not certification
+
+Microsoft API documentation defines settings and access requirements; it does not endorse every selected expectation as mandatory for every organization. Record the observed value separately from its interpretation, applicable product guidance, approved exceptions, and proposed human validation.
+
+NIST CSF 2.0 mappings are analyst-selected supporting-evidence references, not an official crosswalk or proof of outcome attainment. For example, authentication capability can inform `PR.AA`, configuration settings can inform `PR.PS`, and audit configuration can support review of `PR.PS-04`. These are narrow contributions to broader outcomes. NIST describes adaptable cybersecurity outcomes rather than prescribing a universal configuration checklist. [NIST CSF 2.0](https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final).
+
+No compliance percentage, Microsoft Secure Score recreation, certification, maturity tier, or whole-tenant security verdict is produced from these checks. Organizational governance, detection operations, response exercises, recovery capability, and accepted risk require separate evidence.
+
+## Explicitly deferred
+
+This slice does not deliver all workbook themes. PIM effectiveness/activation review, SPF/DKIM/DMARC DNS and mail-flow validation, device compliance, effective MFA/Conditional Access targeting, shared-mailbox sign-in posture, per-user policy precedence, and wider workload/tier assessments remain future work. Some existing collectors already expose limited metadata related to these topics; that is not the same as implementing their posture assessments.
+
+Retain missing, denied, partial, unsupported, and offline evidence visibly. A complete record count, required typed fields, source identity, collection time, and source status matter. A local export is a report of supplied evidence, not a fresh query. Keep raw user/object identifiers, activity times, policy targets, and exceptions in approved private storage; do not publish customer snapshots or imply an export encrypted or permission-hardened them.

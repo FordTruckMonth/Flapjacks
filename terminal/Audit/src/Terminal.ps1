@@ -1,10 +1,13 @@
 function Get-M365OrganizationAuditPlan {
     [CmdletBinding()]
-    param()
-    $plan=Get-M365AuditPlan -Include Authentication,Consent,Administration,TenantInventory,Intune,Exchange,Purview
-    $plan | Add-Member -NotePropertyName OrganizationScope -NotePropertyValue 'Organization-wide current configuration across all 46 supported sources; not every Microsoft 365 setting or effective policy evaluation.'
+    param([switch]$Workbook)
+    $include=@('Authentication','Consent','Administration','TenantInventory','Intune','Exchange','Purview')
+    if($Workbook){$include+=@('WorkbookIdentity','WorkbookExchange','WorkbookCollaboration')}
+    $plan=Get-M365AuditPlan -Include $include
+    $plan | Add-Member -NotePropertyName OrganizationScope -NotePropertyValue ('Organization-wide current settings and selected posture evidence across '+$plan.Sources.Count+' sources; not effective policy evaluation.')
     $plan | Add-Member -NotePropertyName SensitiveReportNotice -NotePropertyValue 'Reports may include tenant policy targeting identities, addresses and infrastructure. Keep on approved local storage.'
-    $plan | Add-Member -NotePropertyName ConfirmationRequired -NotePropertyValue 'Verify signed-in delegated account and tenant binding, and explicitly authorize organization-wide configuration collection. Interactive Flapjacks uses one AUDIT confirmation; direct API callers must supply matching confirmed tenant ID. No tenant writes or log collection.'
+    $word=if($Workbook){'WORKBOOK'}else{'AUDIT'}
+    $plan | Add-Member -NotePropertyName ConfirmationRequired -NotePropertyValue ('Verify signed-in delegated account and tenant binding, and explicitly authorize organization-wide configuration collection. Interactive Flapjacks uses one '+$word+' confirmation; direct API callers must supply matching confirmed tenant ID. No tenant writes or log collection.')
     return $plan
 }
 function Invoke-M365OrganizationAudit {
@@ -17,11 +20,14 @@ function Invoke-M365OrganizationAudit {
         [guid]$ConfirmedTenantId=[guid]::Empty,
         [switch]$ConfirmOrganizationWide,
         [ValidateRange(1,10000)][int]$MaxPages=100,
-        [ValidateRange(1,1000000)][int]$MaxRecords=50000
+        [ValidateRange(1,1000000)][int]$MaxRecords=50000,
+        [switch]$Workbook, [object]$WorkbookCollaborationSnapshot=$null,
+        [Alias('WorkbookMailBaseline')][ValidateSet('None','Standard','Strict')][string]$WorkbookAntiPhishBaseline='None'
     )
+    $include=(Get-M365OrganizationAuditPlan -Workbook:$Workbook).SelectedGroups | Where-Object { $_ -ne 'Core' }
     Invoke-M365SecurityAudit -Mode $Mode -OutputPath $OutputPath -TenantId $TenantId -ExpectedAccount $ExpectedAccount `
         -ConfirmTenantId $ConfirmedTenantId -ConfirmOrganizationScope:$ConfirmOrganizationWide `
-        -Include Authentication,Consent,Administration,TenantInventory,Intune,Exchange,Purview `
+        -Include $include -WorkbookCollaborationSnapshot $WorkbookCollaborationSnapshot -WorkbookAntiPhishBaseline $WorkbookAntiPhishBaseline `
         -MaxPages $MaxPages -MaxRecords $MaxRecords
 }
 function ConvertTo-AuditTerminalText($Value) {

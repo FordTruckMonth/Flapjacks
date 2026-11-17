@@ -13,19 +13,27 @@ function Get-ToolkitEvidenceRoot {
     return $path
 }
 function Invoke-ToolkitAuditWorkflow {
-    param([hashtable]$Runtime,[ValidateSet('Live','Synthetic')][string]$Mode,[guid]$TenantId,[string]$Account,[ValidateSet('Graph','Exchange')][string]$PrimaryService='Graph')
+    param([hashtable]$Runtime,[ValidateSet('Live','Synthetic')][string]$Mode,[guid]$TenantId,[string]$Account,[ValidateSet('Graph','Exchange')][string]$PrimaryService='Graph',[switch]$Workbook)
     Import-Module (Join-Path $script:ToolkitRoot 'Audit/M365SecurityAudit.psm1') -DisableNameChecking
-    $plan=Get-M365OrganizationAuditPlan
-    Write-ToolkitText $Runtime 'AUDIT: organization-wide CURRENT configuration, not mailbox logs. All 46 supported policy/configuration sources are selected; this is not every M365 setting or a compliance certification.'
+    $plan=Get-M365OrganizationAuditPlan -Workbook:$Workbook
+    if($Workbook) {
+        Write-ToolkitText $Runtime ('WORKBOOK: current settings plus selected registration and last successful sign-in timestamps, not sign-in events or mailbox content. '+$plan.Sources.Count+' planned sources.')
+        Write-ToolkitText $Runtime 'Stored mail settings will be compared with Microsoft Standard recommendations; preset assignment and effective protection are not evaluated.'
+        Write-ToolkitText $Runtime 'Optional identity evidence needs existing AuditLog.Read.All and applicable user scope and roles. This mode never requests or broadens permissions. Selected SharePoint tenant settings require existing SharePointTenantSettings.Read.All and supported role. Native Teams and SharePoint/OneDrive PowerShell snapshots are separate, unverified supplemental evidence.'
+    }else{
+        Write-ToolkitText $Runtime 'AUDIT: organization-wide CURRENT configuration, not mailbox logs. All 46 supported policy/configuration sources are selected; this is not every M365 setting or a compliance certification.'
+    }
     Write-ToolkitText $Runtime ('Tenant: '+$TenantId+' | Operator: '+(ConvertTo-ToolkitText $Account))
     Write-ToolkitText $Runtime 'Component sessions: Graph for identity/configuration reads; Exchange for messaging policies; Purview requires an existing approved matching session. Missing components remain independent coverage gaps.'
     Write-ToolkitText $Runtime 'Includes Conditional Access, identity/consent policies, roles, limited Intune metadata, Exchange protection and selected Purview settings. No writes or content collection. Missing privileges/licensing remain explicit gaps.'
     Write-ToolkitText $Runtime ('Graph read permissions used only if already present: '+($plan.GraphReadPermissions -join ', '))
     Write-ToolkitText $Runtime 'Uses existing matching sessions only. Missing scopes/modules/providers are skipped and reported. No new sign-in, consent, scope expansion or automatic files.'
-    $confirm=Read-ToolkitInput $Runtime 'Type AUDIT to authorize these organization-wide reads for the displayed tenant, or Enter to cancel'
-    if($confirm -cne 'AUDIT'){Write-ToolkitText $Runtime 'Audit canceled before authentication changes, queries or file creation.';return}
+    $requiredConfirmation=if($Workbook){'WORKBOOK'}else{'AUDIT'}
+    $confirm=Read-ToolkitInput $Runtime ('Type '+$requiredConfirmation+' to authorize these organization-wide reads for the displayed tenant, or Enter to cancel')
+    if($confirm -cne $requiredConfirmation){Write-ToolkitText $Runtime 'Audit canceled before authentication changes, queries or file creation.';return}
     if($Mode -eq 'Live'){Assert-ToolkitPrimarySession $Runtime $TenantId $Account $PrimaryService}
     $parameters=@{Mode=$Mode;TenantId=$TenantId;ExpectedAccount=$Account;ConfirmedTenantId=$TenantId;ConfirmOrganizationWide=$true}
+    if($Workbook){$parameters.Workbook=$true;$parameters.WorkbookAntiPhishBaseline='Standard'}
     # Injectable adapter seam is used only by offline tests; the standard runtime has none.
     $result=if($Runtime.ContainsKey('AuditRun')){& $Runtime.AuditRun $parameters}else{Invoke-M365OrganizationAudit @parameters}
     # Summary is generated locally from safe metadata, never raw terminal control sequences.
@@ -92,7 +100,7 @@ function Invoke-M365Terminal {
     param([ValidateSet('Live','Synthetic')][string]$Mode='Live',[hashtable]$Runtime)
     if(-not $Runtime){$Runtime=New-ToolkitRuntime}
     Write-ToolkitText $Runtime 'FLAPJACKS | PowerShell 7.4+ | Read-only review build'
-    Write-ToolkitText $Runtime 'No localhost, local listener, browser launch or HTML UI. All workflow and triage are in this terminal; explicit menu S saves the latest in-memory result as local JSON.'
+    Write-ToolkitText $Runtime 'No localhost, local listener, browser launch or HTML UI. All workflow and triage are in this terminal; explicit menu S saves the latest in-memory result as local JSON; P saves an Audit Posture Report with PDF, Excel, CSV and local evidence.'
     Write-ToolkitText $Runtime 'Admin means an approved operator with scoped READ roles, not a request for Global Administrator. No automatic consent, escalation, remediation or external uploads.'
     Write-ToolkitText $Runtime 'Official device-code authentication still requires approval on a Microsoft web page using an approved browser/device. Tenant policy can block it; this app will not bypass that restriction.'
     $pendingAction=''
@@ -123,16 +131,18 @@ function Invoke-M365Terminal {
     }
     $history=[Collections.Generic.List[object]]::new()
     while($true){
-        if($pendingAction){$action=$pendingAction;$pendingAction=''}else{$action=Read-ToolkitInput $Runtime 'A = Audit organization configuration; L = Pull Logs; V = view latest result; S = save latest JSON; Q = quit'}
+        if($pendingAction){$action=$pendingAction;$pendingAction=''}else{$action=Read-ToolkitInput $Runtime 'A = Audit organization configuration; W = extended workbook posture (existing access only); L = Pull Logs; V = view latest result; S = save latest JSON; P = save Audit posture bundle; Q = quit'}
         if($action -ieq 'Q' -or -not $action){break}
         try{
-            if($Mode -eq 'Live' -and $action -in @('A','L')){Assert-ToolkitPrimarySession $Runtime $tenant $account $primary}
+            if($Mode -eq 'Live' -and $action -in @('A','W','L')){Assert-ToolkitPrimarySession $Runtime $tenant $account $primary}
             switch($action.ToUpperInvariant()){
                 'A' {$result=Invoke-ToolkitAuditWorkflow $Runtime $Mode $tenant $account -PrimaryService $primary;if($null -ne $result){$history.Add($result)}}
+                'W' {$result=Invoke-ToolkitAuditWorkflow $Runtime $Mode $tenant $account -PrimaryService $primary -Workbook;if($null -ne $result){$history.Add($result)}}
                 'L' {$result=Invoke-ToolkitLogsWorkflow $Runtime $Mode $tenant $account -PrimaryService $primary;if($null -ne $result){$history.Add($result)}}
                 'S' {if($history.Count){Save-ToolkitResult $history[$history.Count-1] $Runtime}else{Write-ToolkitText $Runtime 'No in-memory result to save.'}}
+                'P' {if($history.Count){Save-ToolkitPostureBundle $history[$history.Count-1] $Runtime}else{Write-ToolkitText $Runtime 'No in-memory result to save.'}}
                 'V' {if($history.Count){Show-ToolkitResult $history[$history.Count-1] $Runtime}else{Write-ToolkitText $Runtime 'No in-memory result to inspect.'}}
-                default {Write-ToolkitText $Runtime 'Choose A, L, V, S or Q. No action performed.'}
+                default {Write-ToolkitText $Runtime 'Choose A, W, L, V, S, P or Q. No action performed.'}
             }
         }catch{Write-ToolkitText $Runtime ('Action stopped safely: '+(ConvertTo-ToolkitText $_.Exception.Message)+'. No fallback or permission grant was attempted.')}
     }
@@ -154,4 +164,15 @@ function Save-ToolkitResult {
     $stream=[IO.File]::Open($full,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
     try{$bytes=[Text.UTF8Encoding]::new($false).GetBytes($json);$stream.Write($bytes,0,$bytes.Length)}finally{$stream.Dispose()}
     Write-ToolkitText $Runtime ('Saved local JSON: '+$full)
+}
+
+function Save-ToolkitPostureBundle {
+    param([Parameter(Mandatory)]$Result,[Parameter(Mandatory)][hashtable]$Runtime)
+    if($null -eq $Result.PSObject.Properties['Evidence'] -or $null -eq $Result.PSObject.Properties['Metadata']){throw 'Posture export requires the latest Audit result, not mailbox Logs. Run Audit explicitly first.'}
+    Write-ToolkitText $Runtime 'Save existing Audit only: local CSV/JSON evidence, Excel and display-only posture PDF. No collection or authentication. Evidence may contain sensitive identities and policy targeting; use approved private local storage. No encryption or permission changes.'
+    $path=Read-ToolkitInput $Runtime 'NEW posture bundle directory under an existing private directory, or Enter to cancel'
+    if(-not $path){Write-ToolkitText $Runtime 'Posture save canceled; no files created.';return}
+    Import-Module (Join-Path $script:ToolkitRoot 'Audit/M365SecurityAudit.psm1') -DisableNameChecking
+    $saved=Export-FlapjacksPostureBundle -Result $Result -OutputDirectory $path
+    Write-ToolkitText $Runtime ('Saved local posture bundle: '+(ConvertTo-ToolkitText $saved.OutputDirectory)+'. Unavailable evidence stays Not assessed. Not a compliance verdict.')
 }
