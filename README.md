@@ -218,3 +218,7 @@ HTML encodes all evidence as text; URLs are defanged and not linked. CSV neutral
 The UTC timeline separates historical events from current snapshots and flags missing timestamps. Exact, case-sensitive opaque IDs support **observed shared-identifier** links, not causation. Session links stay within provider families; IP proximity within 30 minutes is explicitly **inferred** and may reflect NAT/proxies. Link generation is capped and disclosed. There is no compromise score.
 
 MailItemsAccessed **Bind** records retain aggregated item IDs; **Sync** remains folder-level, without invented item timestamps. Neither proves human reading; offline reads are absent. Safe Links is not full browsing history and clicks do not prove credential submission. Missing/default message IDs remain unlinked, and click-to-email correlation requires an actual EmailEvents record. `ActionType`, `IsClickedThrough` and click `ReportId` retain separate meanings.
+
+## License
+
+Original software and documentation are provided under the [MIT License](LICENSE). See [license scope](LICENSE-SCOPE.md) for exclusions.

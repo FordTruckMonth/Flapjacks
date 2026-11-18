@@ -16,4 +16,4 @@ Keep collection read-only. The terminal launcher may offer explicit official dev
 Use reserved example domains and documentation IPs in tests. Report bugs with a minimal synthetic reproduction, not investigation evidence.
 
 ## Licensing
-No open-source license has been selected yet. Public visibility does not by itself grant an open-source license. Discuss licensing with the repository owner before external reuse or redistribution.
+Original project material is available under the [MIT License](LICENSE). See [license scope](LICENSE-SCOPE.md) for exclusions.
