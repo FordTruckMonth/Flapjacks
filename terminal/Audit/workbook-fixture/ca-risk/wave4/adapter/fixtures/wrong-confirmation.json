@@ -1,0 +1,151 @@
+{
+  "Metadata": {
+    "SchemaVersion": "1.1",
+    "ToolVersion": "0.2.0-terminal",
+    "Mode": "Synthetic",
+    "TenantId": "SYNTHETIC-NOT-A-TENANT",
+    "StartedAtUtc": "2026-03-01T01:02:02.0000000Z",
+    "FinishedAtUtc": "2026-03-01T01:02:04.0000000Z",
+    "PowerShellVersion": "7.6.9",
+    "SelectedGroups": [
+      "Core"
+    ],
+    "MaxPages": 100,
+    "MaxRecords": 50000,
+    "OrganizationWideConfirmed": true,
+    "AccountVerification": "Synthetic: not applicable",
+    "Scope": "Current-state configuration snapshot only. Not a complete M365 inventory, effective-policy engine, vulnerability scan or certification.",
+    "Privacy": "No users, sign-ins, mail content, credentials or OAuth grants queried. Policy targeting may contain names, IDs, addresses and infrastructure data. Keep local and access controlled."
+  },
+  "Coverage": [
+    {
+      "SourceId": "conditional-access",
+      "Group": "Core",
+      "Provider": "Graph",
+      "Target": "/identity/conditionalAccess/policies",
+      "Status": "Collected",
+      "Reason": "Synthetic fixture, not tenant data.",
+      "CollectedAtUtc": "2026-03-01T01:02:03.1234565Z",
+      "PageCount": 1,
+      "RequestCount": 0,
+      "Count": 2,
+      "Items": [
+        {
+          "@odata.type": "#microsoft.graph.conditionalAccessPolicy",
+          "id": "f1000000-0000-4000-8000-000000000001",
+          "displayName": "Invented policy A",
+          "createdDateTime": "2026-01-08T12:00:00Z",
+          "modifiedDateTime": "2026-01-08T12:10:00Z",
+          "templateId": null,
+          "state": "enabled",
+          "conditions": {
+            "users": {
+              "includeUsers": [
+                "All"
+              ],
+              "excludeUsers": [],
+              "includeGroups": [],
+              "excludeGroups": [],
+              "includeRoles": [],
+              "excludeRoles": [],
+              "includeGuestsOrExternalUsers": null,
+              "excludeGuestsOrExternalUsers": null
+            },
+            "applications": {
+              "includeApplications": [
+                "All"
+              ],
+              "excludeApplications": [],
+              "includeUserActions": [],
+              "includeAuthenticationContextClassReferences": [],
+              "applicationFilter": null
+            },
+            "clientAppTypes": [
+              "all"
+            ],
+            "signInRiskLevels": [
+              "high"
+            ],
+            "userRiskLevels": [],
+            "servicePrincipalRiskLevels": [],
+            "insiderRiskLevels": null,
+            "platforms": null,
+            "locations": null,
+            "devices": null,
+            "clientApplications": null,
+            "authenticationFlows": null
+          },
+          "grantControls": {
+            "operator": "OR",
+            "builtInControls": [
+              "block"
+            ],
+            "customAuthenticationFactors": [],
+            "termsOfUse": [],
+            "authenticationStrength": null
+          },
+          "sessionControls": null
+        },
+        {
+          "@odata.type": "#microsoft.graph.conditionalAccessPolicy",
+          "id": "f1000000-0000-4000-8000-000000000002",
+          "displayName": "Invented policy B",
+          "createdDateTime": "2026-01-08T12:00:00Z",
+          "modifiedDateTime": "2026-01-08T12:10:00Z",
+          "templateId": null,
+          "state": "enabled",
+          "conditions": {
+            "users": {
+              "includeUsers": [
+                "All"
+              ],
+              "excludeUsers": [],
+              "includeGroups": [],
+              "excludeGroups": [],
+              "includeRoles": [],
+              "excludeRoles": [],
+              "includeGuestsOrExternalUsers": null,
+              "excludeGuestsOrExternalUsers": null
+            },
+            "applications": {
+              "includeApplications": [
+                "All"
+              ],
+              "excludeApplications": [],
+              "includeUserActions": [],
+              "includeAuthenticationContextClassReferences": [],
+              "applicationFilter": null
+            },
+            "clientAppTypes": [
+              "all"
+            ],
+            "signInRiskLevels": [],
+            "userRiskLevels": [
+              "high"
+            ],
+            "servicePrincipalRiskLevels": [],
+            "insiderRiskLevels": null,
+            "platforms": null,
+            "locations": null,
+            "devices": null,
+            "clientApplications": null,
+            "authenticationFlows": null
+          },
+          "grantControls": {
+            "operator": "OR",
+            "builtInControls": [
+              "block"
+            ],
+            "customAuthenticationFactors": [],
+            "termsOfUse": [],
+            "authenticationStrength": null
+          },
+          "sessionControls": null
+        }
+      ],
+      "MissingFields": [],
+      "Notes": "Configuration only. Exclusions, report-only state and policy interactions require review. No effective access evaluation."
+    }
+  ],
+  "Observations": []
+}

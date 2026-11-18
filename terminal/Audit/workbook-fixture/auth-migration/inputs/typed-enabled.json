@@ -1,0 +1,24 @@
+{
+  "authentication-methods-policy": {
+    "Status": "Collected",
+    "Reason": "Synthetic fixture, not tenant data.",
+    "Items": [
+      {
+        "id": "authenticationMethodsPolicy",
+        "policyMigrationState": "migrationComplete",
+        "authenticationMethodConfigurations": [
+          {
+            "id": "Sms",
+            "@odata.type": "#microsoft.graph.smsAuthenticationMethodConfiguration",
+            "state": "disabled"
+          },
+          {
+            "id": "Voice",
+            "@odata.type": "#microsoft.graph.voiceAuthenticationMethodConfiguration",
+            "state": "enabled"
+          }
+        ]
+      }
+    ]
+  }
+}

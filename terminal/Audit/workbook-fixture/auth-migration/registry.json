@@ -1,0 +1,449 @@
+{
+  "SchemaVersion": 1,
+  "ReferenceWorkbookSha256": "92b9e3c82bf9980e8055f4f0953ce975ec16d99bb0b25880f9edcaae9b1c1472",
+  "Catalog": [
+    {
+      "Id": "conditional-access",
+      "Group": "Core",
+      "Provider": "Graph",
+      "Target": "/identity/conditionalAccess/policies"
+    },
+    {
+      "Id": "named-locations",
+      "Group": "Core",
+      "Provider": "Graph",
+      "Target": "/identity/conditionalAccess/namedLocations"
+    },
+    {
+      "Id": "security-defaults",
+      "Group": "Core",
+      "Provider": "Graph",
+      "Target": "/policies/identitySecurityDefaultsEnforcementPolicy"
+    },
+    {
+      "Id": "authorization-policy",
+      "Group": "Core",
+      "Provider": "Graph",
+      "Target": "/policies/authorizationPolicy"
+    },
+    {
+      "Id": "admin-consent-policy",
+      "Group": "Core",
+      "Provider": "Graph",
+      "Target": "/policies/adminConsentRequestPolicy"
+    },
+    {
+      "Id": "cross-tenant-default",
+      "Group": "Core",
+      "Provider": "Graph",
+      "Target": "/policies/crossTenantAccessPolicy/default"
+    },
+    {
+      "Id": "cross-tenant-partners",
+      "Group": "Core",
+      "Provider": "Graph",
+      "Target": "/policies/crossTenantAccessPolicy/partners"
+    },
+    {
+      "Id": "authentication-methods-policy",
+      "Group": "Authentication",
+      "Provider": "Graph",
+      "Target": "/policies/authenticationMethodsPolicy"
+    },
+    {
+      "Id": "authentication-strengths",
+      "Group": "Authentication",
+      "Provider": "Graph",
+      "Target": "/policies/authenticationStrengthPolicies"
+    },
+    {
+      "Id": "permission-grant-policies",
+      "Group": "Consent",
+      "Provider": "Graph",
+      "Target": "/policies/permissionGrantPolicies"
+    },
+    {
+      "Id": "role-definitions",
+      "Group": "Administration",
+      "Provider": "Graph",
+      "Target": "/roleManagement/directory/roleDefinitions"
+    },
+    {
+      "Id": "role-assignments",
+      "Group": "Administration",
+      "Provider": "Graph",
+      "Target": "/roleManagement/directory/roleAssignments"
+    },
+    {
+      "Id": "role-eligibility-instances",
+      "Group": "Administration",
+      "Provider": "Graph",
+      "Target": "/roleManagement/directory/roleEligibilityScheduleInstances"
+    },
+    {
+      "Id": "tenant-domains",
+      "Group": "TenantInventory",
+      "Provider": "Graph",
+      "Target": "/domains"
+    },
+    {
+      "Id": "tenant-subscriptions",
+      "Group": "TenantInventory",
+      "Provider": "Graph",
+      "Target": "/subscribedSkus"
+    },
+    {
+      "Id": "intune-compliance-policy-metadata",
+      "Group": "Intune",
+      "Provider": "Graph",
+      "Target": "/deviceManagement/deviceCompliancePolicies?$select=id,displayName,description,createdDateTime,lastModifiedDateTime,version"
+    },
+    {
+      "Id": "intune-configuration-policy-metadata",
+      "Group": "Intune",
+      "Provider": "Graph",
+      "Target": "/deviceManagement/deviceConfigurations?$select=id,displayName,description,createdDateTime,lastModifiedDateTime,version"
+    },
+    {
+      "Id": "exchange-organization",
+      "Group": "Exchange",
+      "Provider": "Exchange",
+      "Target": "Get-OrganizationConfig"
+    },
+    {
+      "Id": "exchange-transport",
+      "Group": "Exchange",
+      "Provider": "Exchange",
+      "Target": "Get-TransportConfig"
+    },
+    {
+      "Id": "exchange-authentication-policies",
+      "Group": "Exchange",
+      "Provider": "Exchange",
+      "Target": "Get-AuthenticationPolicy"
+    },
+    {
+      "Id": "exchange-accepted-domains",
+      "Group": "Exchange",
+      "Provider": "Exchange",
+      "Target": "Get-AcceptedDomain"
+    },
+    {
+      "Id": "exchange-remote-domains",
+      "Group": "Exchange",
+      "Provider": "Exchange",
+      "Target": "Get-RemoteDomain"
+    },
+    {
+      "Id": "exchange-dkim",
+      "Group": "Exchange",
+      "Provider": "Exchange",
+      "Target": "Get-DkimSigningConfig"
+    },
+    {
+      "Id": "exchange-inbound-connectors",
+      "Group": "Exchange",
+      "Provider": "Exchange",
+      "Target": "Get-InboundConnector"
+    },
+    {
+      "Id": "exchange-outbound-connectors",
+      "Group": "Exchange",
+      "Provider": "Exchange",
+      "Target": "Get-OutboundConnector"
+    },
+    {
+      "Id": "exchange-transport-rules",
+      "Group": "Exchange",
+      "Provider": "Exchange",
+      "Target": "Get-TransportRule"
+    },
+    {
+      "Id": "exchange-antispam-policies",
+      "Group": "Exchange",
+      "Provider": "Exchange",
+      "Target": "Get-HostedContentFilterPolicy"
+    },
+    {
+      "Id": "exchange-antispam-rules",
+      "Group": "Exchange",
+      "Provider": "Exchange",
+      "Target": "Get-HostedContentFilterRule"
+    },
+    {
+      "Id": "exchange-outbound-spam-policies",
+      "Group": "Exchange",
+      "Provider": "Exchange",
+      "Target": "Get-HostedOutboundSpamFilterPolicy"
+    },
+    {
+      "Id": "exchange-outbound-spam-rules",
+      "Group": "Exchange",
+      "Provider": "Exchange",
+      "Target": "Get-HostedOutboundSpamFilterRule"
+    },
+    {
+      "Id": "exchange-antiphish-policies",
+      "Group": "Exchange",
+      "Provider": "Exchange",
+      "Target": "Get-AntiPhishPolicy"
+    },
+    {
+      "Id": "exchange-antiphish-rules",
+      "Group": "Exchange",
+      "Provider": "Exchange",
+      "Target": "Get-AntiPhishRule"
+    },
+    {
+      "Id": "exchange-malware-policies",
+      "Group": "Exchange",
+      "Provider": "Exchange",
+      "Target": "Get-MalwareFilterPolicy"
+    },
+    {
+      "Id": "exchange-malware-rules",
+      "Group": "Exchange",
+      "Provider": "Exchange",
+      "Target": "Get-MalwareFilterRule"
+    },
+    {
+      "Id": "exchange-safe-links-policies",
+      "Group": "Exchange",
+      "Provider": "Exchange",
+      "Target": "Get-SafeLinksPolicy"
+    },
+    {
+      "Id": "exchange-safe-links-rules",
+      "Group": "Exchange",
+      "Provider": "Exchange",
+      "Target": "Get-SafeLinksRule"
+    },
+    {
+      "Id": "exchange-safe-attachments-policies",
+      "Group": "Exchange",
+      "Provider": "Exchange",
+      "Target": "Get-SafeAttachmentPolicy"
+    },
+    {
+      "Id": "exchange-safe-attachments-rules",
+      "Group": "Exchange",
+      "Provider": "Exchange",
+      "Target": "Get-SafeAttachmentRule"
+    },
+    {
+      "Id": "exchange-atp-organization",
+      "Group": "Exchange",
+      "Provider": "Exchange",
+      "Target": "Get-AtpPolicyForO365"
+    },
+    {
+      "Id": "exchange-preset-eop-rules",
+      "Group": "Exchange",
+      "Provider": "Exchange",
+      "Target": "Get-EOPProtectionPolicyRule"
+    },
+    {
+      "Id": "exchange-preset-atp-rules",
+      "Group": "Exchange",
+      "Provider": "Exchange",
+      "Target": "Get-ATPProtectionPolicyRule"
+    },
+    {
+      "Id": "exchange-built-in-protection-rule",
+      "Group": "Exchange",
+      "Provider": "Exchange",
+      "Target": "Get-ATPBuiltInProtectionRule"
+    },
+    {
+      "Id": "purview-dlp-policies",
+      "Group": "Purview",
+      "Provider": "Purview",
+      "Target": "Get-DlpCompliancePolicy"
+    },
+    {
+      "Id": "purview-dlp-rule-metadata",
+      "Group": "Purview",
+      "Provider": "Purview",
+      "Target": "Get-DlpComplianceRule"
+    },
+    {
+      "Id": "purview-retention-policies",
+      "Group": "Purview",
+      "Provider": "Purview",
+      "Target": "Get-RetentionCompliancePolicy"
+    },
+    {
+      "Id": "purview-retention-rules",
+      "Group": "Purview",
+      "Provider": "Purview",
+      "Target": "Get-RetentionComplianceRule"
+    }
+  ],
+  "Cases": {
+    "typed-disabled-report": {
+      "AuditPath": "audits/typed-disabled-report.json",
+      "AuditSha256": "efd3c066f68bf96c79cb9e43b04ff97dc636569638e5e01e74542afdfe7f0be7",
+      "InputPath": "inputs/typed-disabled.json",
+      "InputSha256": "e4304e9495ca9b104a40f3e6e36aa0a5382ef88832519a757a59aa038803b410",
+      "Representation": "NativeAuditJson",
+      "SourceId": "authentication-methods-policy",
+      "Group": "Authentication",
+      "Provider": "Graph",
+      "Target": "/policies/authenticationMethodsPolicy",
+      "CollectedAtUtc": "2026-11-18T21:50:16.4122160Z",
+      "StartedAtUtc": "2026-11-18T21:50:16.3948570Z",
+      "FinishedAtUtc": "2026-11-18T21:50:16.4190960Z",
+      "ReviewAtUtc": "2026-11-18T21:50:16.5469430Z"
+    },
+    "boundary-review": {
+      "AuditPath": "audits/typed-disabled-report.json",
+      "AuditSha256": "efd3c066f68bf96c79cb9e43b04ff97dc636569638e5e01e74542afdfe7f0be7",
+      "InputPath": "inputs/typed-disabled.json",
+      "InputSha256": "e4304e9495ca9b104a40f3e6e36aa0a5382ef88832519a757a59aa038803b410",
+      "Representation": "NativeAuditJson",
+      "SourceId": "authentication-methods-policy",
+      "Group": "Authentication",
+      "Provider": "Graph",
+      "Target": "/policies/authenticationMethodsPolicy",
+      "CollectedAtUtc": "2026-11-18T21:50:16.4122160Z",
+      "StartedAtUtc": "2026-11-18T21:50:16.3948570Z",
+      "FinishedAtUtc": "2026-11-18T21:50:16.4190960Z",
+      "ReviewAtUtc": "2026-11-19T21:50:16.4122160Z"
+    },
+    "stale-review": {
+      "AuditPath": "audits/typed-disabled-report.json",
+      "AuditSha256": "efd3c066f68bf96c79cb9e43b04ff97dc636569638e5e01e74542afdfe7f0be7",
+      "InputPath": "inputs/typed-disabled.json",
+      "InputSha256": "e4304e9495ca9b104a40f3e6e36aa0a5382ef88832519a757a59aa038803b410",
+      "Representation": "NativeAuditJson",
+      "SourceId": "authentication-methods-policy",
+      "Group": "Authentication",
+      "Provider": "Graph",
+      "Target": "/policies/authenticationMethodsPolicy",
+      "CollectedAtUtc": "2026-11-18T21:50:16.4122160Z",
+      "StartedAtUtc": "2026-11-18T21:50:16.3948570Z",
+      "FinishedAtUtc": "2026-11-18T21:50:16.4190960Z",
+      "ReviewAtUtc": "2026-11-19T21:50:16.4122161Z"
+    },
+    "mismatched-capture": {
+      "AuditPath": "audits/typed-disabled-report.json",
+      "AuditSha256": "efd3c066f68bf96c79cb9e43b04ff97dc636569638e5e01e74542afdfe7f0be7",
+      "InputPath": "inputs/typed-disabled.json",
+      "InputSha256": "e4304e9495ca9b104a40f3e6e36aa0a5382ef88832519a757a59aa038803b410",
+      "Representation": "NativeAuditJson",
+      "SourceId": "authentication-methods-policy",
+      "Group": "Authentication",
+      "Provider": "Graph",
+      "Target": "/policies/authenticationMethodsPolicy",
+      "CollectedAtUtc": "2026-11-18T21:50:16.4122161Z",
+      "StartedAtUtc": "2026-11-18T21:50:16.3948570Z",
+      "FinishedAtUtc": "2026-11-18T21:50:16.4190960Z",
+      "ReviewAtUtc": "2026-11-18T21:50:16.5469430Z"
+    },
+    "mismatched-source": {
+      "AuditPath": "audits/typed-disabled-report.json",
+      "AuditSha256": "efd3c066f68bf96c79cb9e43b04ff97dc636569638e5e01e74542afdfe7f0be7",
+      "InputPath": "inputs/typed-disabled.json",
+      "InputSha256": "e4304e9495ca9b104a40f3e6e36aa0a5382ef88832519a757a59aa038803b410",
+      "Representation": "NativeAuditJson",
+      "SourceId": "authentication-methods-policy",
+      "Group": "Authentication",
+      "Provider": "Graph",
+      "Target": "/policies/authorizationPolicy",
+      "CollectedAtUtc": "2026-11-18T21:50:16.4122160Z",
+      "StartedAtUtc": "2026-11-18T21:50:16.3948570Z",
+      "FinishedAtUtc": "2026-11-18T21:50:16.4190960Z",
+      "ReviewAtUtc": "2026-11-18T21:50:16.5469430Z"
+    },
+    "mismatched-input": {
+      "AuditPath": "audits/typed-disabled-report.json",
+      "AuditSha256": "efd3c066f68bf96c79cb9e43b04ff97dc636569638e5e01e74542afdfe7f0be7",
+      "InputPath": "inputs/typed-enabled.json",
+      "InputSha256": "9a3dccd0267d99e59debb2f8700f0e98ded4b31c502fbc4985916b51c1fc58e6",
+      "Representation": "NativeAuditJson",
+      "SourceId": "authentication-methods-policy",
+      "Group": "Authentication",
+      "Provider": "Graph",
+      "Target": "/policies/authenticationMethodsPolicy",
+      "CollectedAtUtc": "2026-11-18T21:50:16.4122160Z",
+      "StartedAtUtc": "2026-11-18T21:50:16.3948570Z",
+      "FinishedAtUtc": "2026-11-18T21:50:16.4190960Z",
+      "ReviewAtUtc": "2026-11-18T21:50:16.5469430Z"
+    },
+    "typed-disabled-snapshot": {
+      "AuditPath": "audits/typed-disabled-snapshot.json",
+      "AuditSha256": "d7af552d12200b303bc276055d680938a83551914e4b14e4ee18bc1f9d96e9f4",
+      "InputPath": "inputs/typed-disabled.json",
+      "InputSha256": "e4304e9495ca9b104a40f3e6e36aa0a5382ef88832519a757a59aa038803b410",
+      "Representation": "SerializedAuditResult",
+      "SourceId": "authentication-methods-policy",
+      "Group": "Authentication",
+      "Provider": "Graph",
+      "Target": "/policies/authenticationMethodsPolicy",
+      "CollectedAtUtc": "2026-11-18T21:50:16.5646340Z",
+      "StartedAtUtc": "2026-11-18T21:50:16.5538240Z",
+      "FinishedAtUtc": "2026-11-18T21:50:16.5657440Z",
+      "ReviewAtUtc": "2026-11-18T21:50:16.5706720Z"
+    },
+    "typed-enabled-report": {
+      "AuditPath": "audits/typed-enabled-report.json",
+      "AuditSha256": "c80c7f63357fb742c1bb2a4763adc97dbc1d60304ad34988a19d9c70e1cb23ed",
+      "InputPath": "inputs/typed-enabled.json",
+      "InputSha256": "9a3dccd0267d99e59debb2f8700f0e98ded4b31c502fbc4985916b51c1fc58e6",
+      "Representation": "NativeAuditJson",
+      "SourceId": "authentication-methods-policy",
+      "Group": "Authentication",
+      "Provider": "Graph",
+      "Target": "/policies/authenticationMethodsPolicy",
+      "CollectedAtUtc": "2026-11-18T21:50:16.5830480Z",
+      "StartedAtUtc": "2026-11-18T21:50:16.5722930Z",
+      "FinishedAtUtc": "2026-11-18T21:50:16.5842300Z",
+      "ReviewAtUtc": "2026-11-18T21:50:16.6488290Z"
+    },
+    "typed-enabled-snapshot": {
+      "AuditPath": "audits/typed-enabled-snapshot.json",
+      "AuditSha256": "a8db7358904a71bcc43df350f38e6014424c63bf87fac7706f266a6fc8285cfb",
+      "InputPath": "inputs/typed-enabled.json",
+      "InputSha256": "9a3dccd0267d99e59debb2f8700f0e98ded4b31c502fbc4985916b51c1fc58e6",
+      "Representation": "SerializedAuditResult",
+      "SourceId": "authentication-methods-policy",
+      "Group": "Authentication",
+      "Provider": "Graph",
+      "Target": "/policies/authenticationMethodsPolicy",
+      "CollectedAtUtc": "2026-11-18T21:50:16.6568790Z",
+      "StartedAtUtc": "2026-11-18T21:50:16.6490270Z",
+      "FinishedAtUtc": "2026-11-18T21:50:16.6578710Z",
+      "ReviewAtUtc": "2026-11-18T21:50:16.6612170Z"
+    },
+    "stock-report": {
+      "AuditPath": "audits/stock-report.json",
+      "AuditSha256": "27d4bda88adad35aa6cfcc5d8bfceb9bb434f0fc45529278231c3932f66fc027",
+      "InputPath": "../../fixtures/synthetic.json",
+      "InputSha256": "6b114803f3bd048a5d5f61ce3034df8fdee3e99128abdcac6a686ec8bdf26483",
+      "Representation": "NativeAuditJson",
+      "SourceId": "authentication-methods-policy",
+      "Group": "Authentication",
+      "Provider": "Graph",
+      "Target": "/policies/authenticationMethodsPolicy",
+      "CollectedAtUtc": "2026-11-18T21:50:16.6750930Z",
+      "StartedAtUtc": "2026-11-18T21:50:16.6616400Z",
+      "FinishedAtUtc": "2026-11-18T21:50:16.6859030Z",
+      "ReviewAtUtc": "2026-11-18T21:50:16.7642810Z"
+    },
+    "stock-snapshot": {
+      "AuditPath": "audits/stock-snapshot.json",
+      "AuditSha256": "db22ed0a4fd3a3212fc8f1eb58782c4ec026e5bebe98bc21d3a6501adab2026d",
+      "InputPath": "../../fixtures/synthetic.json",
+      "InputSha256": "6b114803f3bd048a5d5f61ce3034df8fdee3e99128abdcac6a686ec8bdf26483",
+      "Representation": "SerializedAuditResult",
+      "SourceId": "authentication-methods-policy",
+      "Group": "Authentication",
+      "Provider": "Graph",
+      "Target": "/policies/authenticationMethodsPolicy",
+      "CollectedAtUtc": "2026-11-18T21:50:16.7704230Z",
+      "StartedAtUtc": "2026-11-18T21:50:16.7644440Z",
+      "FinishedAtUtc": "2026-11-18T21:50:16.7727700Z",
+      "ReviewAtUtc": "2026-11-18T21:50:16.7757430Z"
+    }
+  }
+}
