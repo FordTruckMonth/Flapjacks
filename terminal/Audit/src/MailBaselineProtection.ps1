@@ -1,7 +1,7 @@
 #requires -Version 7.4
 # Fixed recommendation data only. Dot-sourcing never collects, authenticates or exports.
 # Microsoft Learn recommendations reviewed 2026-11-17. A null profile value is
-# deliberately unassessed, not false and not an inferred Standard/Strict setting.
+# not an inferred Standard/Strict setting; typed Global values are separate recommendations.
 function Get-FlapjacksMailBaselineProtectionDefinitions {
     $recommended='https://learn.microsoft.com/en-us/defender-office-365/recommended-settings-for-eop-and-office365'
     $policyLimit='Stored policy settings only, including disabled or unassigned policies. Rule state, priority, preset precedence, recipients and exclusions are not resolved; this does not establish effective recipient protection.'
@@ -9,8 +9,10 @@ function Get-FlapjacksMailBaselineProtectionDefinitions {
     $linkAccess='Existing Exchange read access to Get-SafeLinksPolicy, appropriate RBAC and eligible Defender for Office 365 service. No new access is requested.'
     $attachmentAccess='Existing Exchange read access to Get-SafeAttachmentPolicy, appropriate RBAC and eligible Defender for Office 365 service. No new access is requested.'
     $malwareAccess='Existing Exchange read access to Get-MalwareFilterPolicy and appropriate Exchange Online Protection service and RBAC. No new access is requested.'
-    $organizationAccess='Existing Exchange read access to Get-AtpPolicyForO365 and appropriate RBAC. Defender for Office 365 and Safe Documents have separate licensing requirements; eligibility is not established by this snapshot.'
-    $organizationLimit='Organization-level configuration, not a Standard or Strict preset setting. Licensing, supported clients and actual file handling are not verified; this does not establish effective recipient protection.'
+    $organizationAccess='Existing Exchange read access to Get-AtpPolicyForO365 and appropriate RBAC. No new access is requested. Defender for Office 365 and Safe Documents have separate licensing requirements; eligibility is not established by this snapshot.'
+    $organizationLimit='Stored organization-level configuration from Entra-bound Exchange Online evidence only, not a Standard or Strict preset setting. Licensing and actual file handling are not verified; this does not establish effective recipient protection.'
+    # Applicability: https://learn.microsoft.com/en-us/defender-office-365/safe-documents-in-e5-plus-security-about
+    $safeDocumentsLimit=' Safe Documents separately requires an assigned eligible Office 365 SafeDocs (SAFEDOCS) service plan and supported Microsoft 365 Apps for enterprise clients (version 2004 or later). Defender for Office 365 Plan 1 or Plan 2 alone does not establish Safe Documents eligibility. Service-plan assignment, per-user availability and client applicability are not verified; no licensed or unlicensed verdict is inferred.'
     @(
         [pscustomobject]@{
             Id='MDO-LINK-EMAIL'; Name='Safe Links email switch'; SourceId='exchange-safe-links-policies'; ExcludeBuiltIn=$true
@@ -96,7 +98,7 @@ function Get-FlapjacksMailBaselineProtectionDefinitions {
             Id='EOP-MALWARE-FILE-ACTION'; Name='Common-attachment filter stored response'; SourceId='exchange-malware-policies'
             Target='Get-MalwareFilterPolicy'; Field='FileTypeAction'; Kind='Enumeration'; ValidValues=@('Reject','Quarantine'); Standard='Reject'; Strict='Reject'
             Rationale='Both profiles select Reject for common-attachment matches.'
-            Limitation=$policyLimit+' EnableFileFilter is assessed separately by EOP-FILE-FILTER. FileTypes completeness is not assessed.'
+            Limitation=$policyLimit+' EnableFileFilter is assessed separately by EOP-FILE-FILTER. The documented baseline type list is compared separately by EOP-MALWARE-FILE-TYPES; custom-list suitability is not assessed.'
             Reference=$recommended+'#anti-malware-policy-settings'; Access=$malwareAccess; Section='Anti-malware'
         },
         [pscustomobject]@{
@@ -106,27 +108,27 @@ function Get-FlapjacksMailBaselineProtectionDefinitions {
             Limitation=$policyLimit+' No detection, purge or mailbox outcomes are tested.'
             Reference=$recommended+'#anti-malware-policy-settings'; Access=$malwareAccess; Section='Anti-malware'
         },
-        # These global values have a separate Built-in protection recommendation,
-        # not Standard/Strict expected values. Keep them explicitly unassessed.
+        # Microsoft recommends these global values in its Built-in protection column.
+        # Compare Global separately; never substitute these values into Standard/Strict.
         [pscustomobject]@{
             Id='MDO-ORG-COLLAB'; Name='Defender collaboration-file switch'; SourceId='exchange-atp-organization'
-            Target='Get-AtpPolicyForO365'; Field='EnableATPForSPOTeamsODB'; Kind='Boolean'; ValidValues=@(); Standard=$null; Strict=$null
-            Rationale='Separate Built-in protection recommendation: EnableATPForSPOTeamsODB = true. Not a Standard/Strict recommendation.'
+            Target='Get-AtpPolicyForO365'; Field='EnableATPForSPOTeamsODB'; Kind='Boolean'; ValidValues=@(); Standard=$null; Strict=$null; Global=$true
+            Rationale='Microsoft global recommendation: EnableATPForSPOTeamsODB = true, matching the Built-in protection column. Not a Standard/Strict recommendation.'
             Limitation=$organizationLimit+' The separate SharePoint infected-file download restriction is not assessed here.'
             Reference=$recommended+'#global-settings-for-safe-attachments'; Access=$organizationAccess; Section='Defender organization'
         },
         [pscustomobject]@{
             Id='MDO-ORG-SAFEDOCS'; Name='Safe Documents switch'; SourceId='exchange-atp-organization'
-            Target='Get-AtpPolicyForO365'; Field='EnableSafeDocs'; Kind='Boolean'; ValidValues=@(); Standard=$null; Strict=$null
-            Rationale='Separate Built-in protection recommendation: EnableSafeDocs = true. Not a Standard/Strict recommendation.'
-            Limitation=$organizationLimit+' Safe Documents requires eligible licensing beyond Defender for Office 365.'
+            Target='Get-AtpPolicyForO365'; Field='EnableSafeDocs'; Kind='Boolean'; ValidValues=@(); Standard=$null; Strict=$null; Global=$true
+            Rationale='Microsoft global recommendation: EnableSafeDocs = true, matching the Built-in protection column. Not a Standard/Strict recommendation.'
+            Limitation=$organizationLimit+$safeDocumentsLimit
             Reference=$recommended+'#global-settings-for-safe-attachments'; Access=$organizationAccess; Section='Defender organization'
         },
         [pscustomobject]@{
             Id='MDO-ORG-SAFEDOCS-OPEN'; Name='Safe Documents click-through configuration'; SourceId='exchange-atp-organization'
-            Target='Get-AtpPolicyForO365'; Field='AllowSafeDocsOpen'; Kind='Boolean'; ValidValues=@(); Standard=$null; Strict=$null
-            Rationale='Separate Built-in protection recommendation: AllowSafeDocsOpen = false. Not a Standard/Strict recommendation.'
-            Limitation=$organizationLimit+' This switch depends on Safe Documents being available and enabled.'
+            Target='Get-AtpPolicyForO365'; Field='AllowSafeDocsOpen'; Kind='Boolean'; ValidValues=@(); Standard=$null; Strict=$null; Global=$false
+            Rationale='Microsoft global recommendation: AllowSafeDocsOpen = false, matching the Built-in protection column. Not a Standard/Strict recommendation.'
+            Limitation=$organizationLimit+$safeDocumentsLimit+' This switch is meaningful only when EnableSafeDocs is true and Safe Documents is available; matching this value alone does not establish enforced blocking.'
             Reference=$recommended+'#global-settings-for-safe-attachments'; Access=$organizationAccess; Section='Defender organization'
         }
     )

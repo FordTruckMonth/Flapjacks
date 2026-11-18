@@ -397,7 +397,7 @@ function Export-FlapjacksPostureBundle {
  if('WorkbookExchange' -cin $selectedGroups){
   $savedBaseline=Value $metadata 'WorkbookAntiPhishBaseline'
   $profile=if($savedBaseline -is [string] -and $savedBaseline -cin @('Standard','Strict')){$savedBaseline}else{'Not selected (None, missing or unsupported saved value)'}
-  $notes=@($notes[0],('Saved Microsoft mail recommendation profile: '+$profile+'. A selected profile is a comparison choice, not proof that Microsoft preset policies are enabled.'))+@($notes|Select-Object -Skip 1)
+  $notes=@($notes[0],('Saved Microsoft mail recommendation profile: '+$profile+'. A selected profile is a comparison choice, not proof that Microsoft preset policies are enabled. Microsoft global settings are compared separately when evidence is available.'))+@($notes|Select-Object -Skip 1)
  }
  # Nothing above creates a file. The explicitly requested export is the only write boundary.
  [void](New-Item -ItemType Directory -Path $out -ErrorAction Stop)

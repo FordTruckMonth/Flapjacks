@@ -162,6 +162,7 @@ Check 'JSON preserves false rather than null' ((FieldDefinition $roundtrip 'Noti
 . (Join-Path $PSScriptRoot '../src/Collect.ps1')
 . (Join-Path $PSScriptRoot '../src/MailBaselineAntiphish.ps1')
 . (Join-Path $PSScriptRoot '../src/MailBaselineProtection.ps1')
+. (Join-Path $PSScriptRoot '../src/MailBaselineFileTypes.ps1')
 . (Join-Path $PSScriptRoot '../src/MailBaseline.ps1')
 function New-SpamWaveTwoSample {
     [pscustomobject]@{Evidence=@([pscustomobject]@{
