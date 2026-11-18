@@ -95,7 +95,7 @@ Check 'Workbook Graph scope set stays unchanged' (($workbookPlan.GraphReadPermis
 # These pure modules have no network, authentication, collection, export or
 # dynamic-command seam. Review additions deliberately instead of allowing an
 # unexpected qualified command to evade the runtime traps below.
-$pureCommands=@('Set-StrictMode','Get-AuditProperty','Get-AuditSourceCatalog','Get-FlapjacksMailBaselineDefinitions','Get-FlapjacksMailBaselineAntiphishDefinitions','Get-FlapjacksMailBaselineSpamDefinitions','Get-FlapjacksMailBaselineProtectionDefinitions','IsList','IsInteger','ForEach-Object','Where-Object','Sort-Object','Measure-Object')
+$pureCommands=@('Set-StrictMode','Get-AuditProperty','Get-AuditSourceCatalog','Get-FlapjacksMailBaselineDefinitions','Get-FlapjacksMailBaselineAntiphishDefinitions','Get-FlapjacksMailBaselineSpamDefinitions','Get-FlapjacksMailBaselineProtectionDefinitions','Get-FlapjacksMailBaselineFileTypesDefinitions','IsList','IsInteger','ForEach-Object','Where-Object','Sort-Object','Measure-Object')
 foreach($file in Get-ChildItem -LiteralPath (Join-Path $script:AuditRoot 'src') -Filter 'MailBaseline*.ps1'){
  $tokens=$null;$errors=$null;$ast=[Management.Automation.Language.Parser]::ParseFile($file.FullName,[ref]$tokens,[ref]$errors)
  Check ('Mail PowerShell parses '+$file.Name) ($errors.Count -eq 0)
@@ -121,6 +121,13 @@ Check 'Direct API refuses profile without Workbook opt-in' (Rejects {Invoke-M365
 
 $definitions=@(Get-FlapjacksMailBaselineDefinitions)
 Check 'Mail definitions exist with unique IDs' ($definitions.Count -gt 0 -and @($definitions.Id|Sort-Object -Unique).Count -eq $definitions.Count)
+$globalExpected=[ordered]@{'MDO-ORG-COLLAB'=$true;'MDO-ORG-SAFEDOCS'=$true;'MDO-ORG-SAFEDOCS-OPEN'=$false}
+$globalIds=@($globalExpected.Keys)
+Check 'Wave3 has 51 mail rows and exactly three separate global recommendations' ($definitions.Count -eq 51 -and (@($definitions|Where-Object {$null -ne (Get-AuditProperty $_ 'Global')}|ForEach-Object Id) -join ',') -ceq ($globalIds -join ','))
+foreach($id in $globalIds){
+ $d=@($definitions|Where-Object Id -ceq $id)[0]
+ Check ($id+' exact Microsoft global Boolean is separate from both preset profiles') ($d.Global -is [bool] -and $d.Global -ceq $globalExpected[$id] -and $null -eq $d.Standard -and $null -eq $d.Strict)
+}
 $optionalMailFields=@{
  'exchange-antiphish-policies'='TargetedUserProtectionAction,TargetedDomainProtectionAction,MailboxIntelligenceProtectionAction'
  'exchange-antispam-policies'='QuarantineRetentionPeriod,SpamZapEnabled,PhishZapEnabled'
@@ -146,6 +153,7 @@ function Sample([string]$Baseline='Standard'){
   $item=[ordered]@{Identity='MAIL_QA_RAW_ID';Name='MAIL_QA_RAW_NAME';IsBuiltInProtection=$false}
   foreach($d in @($definitions|Where-Object SourceId -ceq $sourceId)){
    $value=Get-AuditProperty $d $Baseline
+   if($d.Id -cin $globalIds){$value=$globalExpected[$d.Id]}
    if($d.Kind -ceq 'EmptyList'){$value=@()}
    $item[$d.Field]=$value
   }
@@ -163,11 +171,23 @@ $good=Sample
 $before=$good|ConvertTo-Json -Depth 100
 $rows=@(Mail $good)
 Check 'One output row per definition and no duplicate controls' ($rows.Count -eq $definitions.Count -and @($rows.ControlId|Sort-Object -Unique).Count -eq $rows.Count)
-$unprofiled=@($definitions|Where-Object {$null -eq (Get-AuditProperty $_ 'Standard')}|ForEach-Object Id)
-Check 'Unprofiled organization values are not invented as Standard/Strict recommendations' (($unprofiled -join ',') -ceq 'MDO-ORG-COLLAB,MDO-ORG-SAFEDOCS,MDO-ORG-SAFEDOCS-OPEN' -and @($rows|Where-Object {$_.ControlId -in $unprofiled -and $_.Status -cne 'Not assessed'}).Count -eq 0)
-Check 'Complete correctly typed fixture meets selected Standard settings' (@($rows|Where-Object {$_.ControlId -notin $unprofiled -and $_.Status -cne 'Meets selected setting'}).Count -eq 0)
-Check 'No selection never implies Standard or Strict' (@(Mail $good None|Where-Object Status -cne 'Not assessed').Count -eq 0)
-Check 'Pure evaluator default is None rather than an implicit recommendation' (@(Get-FlapjacksMailBaselineChecks -Result $good|Where-Object Status -cne 'Not assessed').Count -eq 0)
+Check 'Only the separate global rows have no Standard/Strict expectation' ((@($definitions|Where-Object {$null -eq (Get-AuditProperty $_ 'Standard')}|ForEach-Object Id) -join ',') -ceq ($globalIds -join ','))
+Check 'Complete correctly typed fixture meets selected Standard and global settings' (@($rows|Where-Object Status -cne 'Meets selected setting').Count -eq 0)
+foreach($baseline in @('None','Standard','Strict')){
+ $globalRows=@(Mail $good $baseline|Where-Object ControlId -cin $globalIds)
+ Check ('All three global recommendations assess independently of '+$baseline) ($globalRows.Count -eq 3 -and @($globalRows|Where-Object Status -cne 'Meets selected setting').Count -eq 0)
+ foreach($row in $globalRows){
+  Check ($row.ControlId+' labels global rather than '+$baseline+' recommendation') ($row.Expected -cmatch '^Microsoft global recommendation: ' -and $row.ProfileVersion -ceq 'Flapjacks Microsoft global mail policy 0.1' -and ($row.Expected+' '+$row.Observed+' '+$row.StatusDetailsSafe+' '+$row.ProfileVersion) -notmatch 'Standard|Strict')
+ }
+}
+Check 'No selection leaves preset rows unknown without suppressing global checks' (@(Mail $good None|Where-Object {$_.ControlId -cnotin $globalIds -and $_.Status -cne 'Not assessed'}).Count -eq 0)
+$unspecified=@(Get-FlapjacksMailBaselineChecks -Result $good)
+Check 'Pure evaluator default is None, not implicit Standard, while global checks remain assessable' (@($unspecified|Where-Object {$_.ControlId -cnotin $globalIds -and $_.Status -cne 'Not assessed'}).Count -eq 0 -and @($unspecified|Where-Object {$_.ControlId -cin $globalIds -and $_.Status -ceq 'Meets selected setting'}).Count -eq 3)
+$noWorkbook=Copy-Result $good;$noWorkbook.Metadata.SelectedGroups=@($default.Metadata.SelectedGroups)
+Check 'Complete saved mail evidence never opts aggregate reporting into Workbook' (@(Get-FlapjacksAllPostureChecks -Result $noWorkbook).Count -eq 5)
+$globalOnly=Copy-Result $good;$globalOnly.Metadata.WorkbookAntiPhishBaseline='None'
+$globalOnlyRows=@(Get-FlapjacksAllPostureChecks -Result $globalOnly)
+Check 'Workbook None retains 81 aggregate rows with exactly three assessed global mail recommendations' ($globalOnlyRows.Count -eq 81 -and @($globalOnlyRows|Where-Object {$_.ControlId -cin $globalIds -and $_.Status -ceq 'Meets selected setting'}).Count -eq 3 -and @($globalOnlyRows|Where-Object {$_.ControlId -cin $definitions.Id -and $_.ControlId -cnotin $globalIds -and $_.Status -cne 'Not assessed'}).Count -eq 0)
 Check 'Evaluator is pure and never mutates evidence' (($good|ConvertTo-Json -Depth 100) -ceq $before -and $script:ExternalCalls -eq 0)
 foreach($row in $rows){
  Check ('Closed status and bounded recommendation claim '+$row.ControlId) ($row.Status -cin @('Meets selected setting','Needs action','Not assessed') -and $row.Limitation -match 'effective' -and $row.Reference -like 'https://learn.microsoft.com/*')
@@ -222,6 +242,7 @@ foreach($d in $definitions){
   'Enumeration' {@($null,0,$true,'MAIL_QA_RAW_UNKNOWN_ENUM','',@('Quarantine'),@{})}
   'IntegerExact' {@($null,[string]$d.Standard,[double]$d.Standard,$true,-1,($d.Maximum+1),@($d.Standard),@{})}
   'EmptyList' {@($null,'MAIL_QA_RAW_ADDRESS@example.test',42,$true,@{},@(''),@(42),@($null))}
+  'ContainsAllFileTypes' {@($null,'exe',42,$true,@{})}
   default {throw ('Unreviewed benchmark type: '+$d.Kind)}
  }
  foreach($value in $invalid){
@@ -230,9 +251,15 @@ foreach($d in $definitions){
   $e.Items+=@((Sample).Evidence|Where-Object SourceId -ceq $d.SourceId|ForEach-Object {$_.Items[0]});$e.Count=2
   Check ($d.Id+' valid sibling cannot hide malformed setting') ((By (Mail $r) $d.Id).Status -ceq 'Not assessed')
  }
- if($d.Kind -ceq 'Boolean' -and $d.Id -notin $unprofiled){
-  $r=Sample;$e=@($r.Evidence|Where-Object SourceId -ceq $d.SourceId)[0];$e.Items[0].($d.Field)=(-not [bool]$d.Standard)
+ if($d.Kind -ceq 'Boolean'){
+  $expected=if($d.Id -cin $globalIds){$globalExpected[$d.Id]}else{$d.Standard}
+  $r=Sample;$e=@($r.Evidence|Where-Object SourceId -ceq $d.SourceId)[0];$e.Items[0].($d.Field)=(-not [bool]$expected)
   Check ($d.Id+' explicit opposite Boolean needs action, never unknown') ((By (Mail $r) $d.Id).Status -ceq 'Needs action')
+  if($d.Id -cin $globalIds){
+   foreach($baseline in @('None','Standard','Strict')){
+    Check ($d.Id+' global mismatch needs action independently of '+$baseline) ((By (Mail $r $baseline) $d.Id).Status -ceq 'Needs action')
+   }
+  }
  }
  if($d.Kind -ceq 'Enumeration'){
   $r=Sample;$e=@($r.Evidence|Where-Object SourceId -ceq $d.SourceId)[0];$e.Items[0].($d.Field)=([string]$d.Standard).ToLowerInvariant()
@@ -260,7 +287,7 @@ foreach($d in $definitions){
   Check ($d.Id+' explicit built-in skipped, valid custom policy retained') ((By (Mail $r) $d.Id).Status -ceq 'Meets selected setting')
  }
 }
-Check 'All correctly typed Strict settings meet Strict profile' (@(Mail (Sample Strict) Strict|Where-Object {$_.ControlId -notin $unprofiled -and $_.Status -cne 'Meets selected setting'}).Count -eq 0)
+Check 'All correctly typed Strict and global settings meet their recommendations' (@(Mail (Sample Strict) Strict|Where-Object Status -cne 'Meets selected setting').Count -eq 0)
 Check 'Invalid selected profile rejected' (Rejects {Get-FlapjacksMailBaselineChecks -Result $good -Baseline Custom})
 Check 'No full evidence rows is rejected rather than fabricated' (Rejects {Get-FlapjacksMailBaselineChecks -Result @{Evidence=@()} -Baseline Standard})
 $r=Sample;$r.Evidence+=@($r.Evidence[0])
@@ -268,9 +295,88 @@ Check 'Duplicate source IDs rejected instead of merging runs' (Rejects {Mail $r}
 $r=Sample;$r.Evidence[0].SourceId='../MAIL_QA_RAW_TRAVERSAL'
 Check 'Invalid source identity rejected' (Rejects {Mail $r})
 $r=Sample;$r|Add-Member -NotePropertyName Coverage -NotePropertyValue $r.Evidence -Force;$r.PSObject.Properties.Remove('Evidence')
-Check 'Full saved Coverage records are supported' (@(Mail $r|Where-Object {$_.ControlId -notin $unprofiled -and $_.Status -cne 'Meets selected setting'}).Count -eq 0)
+Check 'Full saved Coverage records are supported' (@(Mail $r|Where-Object Status -cne 'Meets selected setting').Count -eq 0)
 $summary=@{Coverage=@($workbook.Coverage)}
 Check 'Summary-only Coverage cannot substitute for raw source evidence' (@(Mail $summary|Where-Object Status -cne 'Not assessed').Count -eq 0)
+
+# Independently pinned documented defaults. Keep this fixture distinct from the
+# production registry so a mutually consistent omission cannot pass unnoticed.
+# Source: Microsoft Learn common-attachments-filter-in-anti-malware-policies,
+# reviewed 2026-11-17. This is not the workbook's custom dangerous-extension list.
+$fileTypeId='EOP-MALWARE-FILE-TYPES'
+$fileTypes='ace,ani,apk,app,appx,arj,bat,cab,cmd,com,deb,dex,dll,docm,elf,exe,hta,img,iso,jar,jnlp,kext,lha,lib,library,lnk,lzh,macho,msc,msi,msix,msp,mst,pif,ppa,ppam,reg,rev,scf,scr,sct,sys,uif,vb,vbe,vbs,vxd,wsc,wsf,wsh,xll,xz,z' -split ','
+$fileDefinition=@($definitions|Where-Object Id -ceq $fileTypeId)[0]
+Check 'Exactly one FileTypes completeness row, not 53 extension controls' (@($definitions|Where-Object Field -ceq 'FileTypes').Count -eq 1 -and $fileDefinition.Kind -ceq 'ContainsAllFileTypes' -and $fileDefinition.SourceId -ceq 'exchange-malware-policies' -and $fileDefinition.Target -ceq 'Get-MalwareFilterPolicy')
+Check 'Both preset profiles pin the exact independent 53-type default list' ($fileTypes.Count -eq 53 -and ($fileDefinition.Standard -join ',') -ceq ($fileTypes -join ',') -and ($fileDefinition.Strict -join ',') -ceq ($fileTypes -join ','))
+Check 'FileTypes comparison retains effective-protection and custom-workbook limitations' ($fileDefinition.Limitation -match 'effective recipient protection' -and $fileDefinition.Limitation -match '168.*partial' -and $fileDefinition.Limitation -match 'custom extension list' -and $fileDefinition.Limitation -match 'enabled-rule')
+foreach($baseline in @('Standard','Strict')){
+ foreach($case in @(
+  [pscustomobject]@{Name='all documented defaults';Value=@($fileTypes)},
+  [pscustomobject]@{Name='uppercase defaults';Value=@($fileTypes|ForEach-Object {$_.ToUpperInvariant()})},
+  [pscustomobject]@{Name='uppercase dotted defaults';Value=@($fileTypes|ForEach-Object {'.'+$_.ToUpperInvariant()})},
+  [pscustomobject]@{Name='reordered duplicate and additional valid tokens';Value=@($fileTypes|Sort-Object -Descending)+@('exe','.EXE','MAILQARAWEXTRA','7z')}
+ )){
+  $r=Sample;$e=@($r.Evidence|Where-Object SourceId -ceq 'exchange-malware-policies')[0];$e.Items[0].FileTypes=$case.Value
+  $row=By (Mail $r $baseline) $fileTypeId
+  Check ('FileTypes '+$case.Name+' meet '+$baseline) ($row.Status -ceq 'Meets selected setting')
+  Check ('FileTypes '+$case.Name+' disclose only bounded counts in '+$baseline) ($row.Observed -match '53 of 53' -and ($row.Observed+' '+$row.StatusDetailsSafe) -notmatch 'MAILQARAWEXTRA|\.EXE|\b7z\b')
+ }
+ foreach($omitted in $fileTypes){
+  $r=Sample;$e=@($r.Evidence|Where-Object SourceId -ceq 'exchange-malware-policies')[0];$e.Items[0].FileTypes=@($fileTypes|Where-Object {$_ -cne $omitted})
+  $row=By (Mail $r $baseline) $fileTypeId
+  Check ('FileTypes known omission '+$omitted+' needs action in '+$baseline) ($row.Status -ceq 'Needs action' -and $row.Observed -match '52 of 53')
+ }
+ $r=Sample;$e=@($r.Evidence|Where-Object SourceId -ceq 'exchange-malware-policies')[0];$e.Items[0].FileTypes=@()
+ $row=By (Mail $r $baseline) $fileTypeId
+ Check ('FileTypes typed empty list is a known gap in '+$baseline) ($row.Status -ceq 'Needs action' -and $row.Observed -match '0 of 53')
+}
+$badFileTypes=@(
+ [pscustomobject]@{Name='missing token';Value=@($null)},
+ [pscustomobject]@{Name='numeric token';Value=@(42)},
+ [pscustomobject]@{Name='Boolean token';Value=@($false)},
+ [pscustomobject]@{Name='object token';Value=@(@{Name='exe'})},
+ [pscustomobject]@{Name='nested token list';Value=@((,@('exe','dll')))},
+ [pscustomobject]@{Name='empty token';Value=@('')},
+ [pscustomobject]@{Name='whitespace token';Value=@(' ')},
+ [pscustomobject]@{Name='leading whitespace';Value=@(' exe')},
+ [pscustomobject]@{Name='trailing whitespace';Value=@('exe ')},
+ [pscustomobject]@{Name='trailing newline';Value=@("exe`n")},
+ [pscustomobject]@{Name='embedded newline';Value=@("ex`ne")},
+ [pscustomobject]@{Name='terminal escape';Value=@(([string][char]27+'[31mMAIL_QA_RAW_EXTENSION'))},
+ [pscustomobject]@{Name='formula token';Value=@('=MAIL_QA_RAW_EXTENSION')},
+ [pscustomobject]@{Name='HTML token';Value=@('<MAIL_QA_RAW_EXTENSION>')},
+ [pscustomobject]@{Name='URL token';Value=@('https://sensitive.invalid/MAIL_QA_RAW_EXTENSION')},
+ [pscustomobject]@{Name='path token';Value=@('../MAIL_QA_RAW_EXTENSION')},
+ [pscustomobject]@{Name='wildcard token';Value=@('*.exe')},
+ [pscustomobject]@{Name='double-dot token';Value=@('..exe')},
+ [pscustomobject]@{Name='compound token';Value=@('exe.dll')},
+ [pscustomobject]@{Name='joined tokens';Value=@('exe,dll')},
+ [pscustomobject]@{Name='unsupported Unicode';Value=@('éxe')},
+ [pscustomobject]@{Name='oversized token';Value=@('MAILQARAWEXTENSIONTOOLONG')}
+)
+foreach($case in $badFileTypes){
+ $r=Sample;$e=@($r.Evidence|Where-Object SourceId -ceq 'exchange-malware-policies')[0];$e.Items[0].FileTypes=$case.Value
+ foreach($baseline in @('Standard','Strict')){
+  $row=By (Mail $r $baseline) $fileTypeId
+  Check ('FileTypes '+$case.Name+' remains unknown in '+$baseline) ($row.Status -ceq 'Not assessed')
+  Check ('FileTypes '+$case.Name+' never leaks into display text') (($row.Observed+' '+$row.StatusDetailsSafe) -notmatch 'MAIL_QA_RAW_|MAILQARAW|sensitive.invalid')
+ }
+ $e.Items[0].FileTypes=@($fileTypes)+$case.Value
+ Check ('FileTypes '+$case.Name+' poisons even an otherwise complete list') ((By (Mail $r) $fileTypeId).Status -ceq 'Not assessed')
+ $e.Items+=@((Sample).Evidence|Where-Object SourceId -ceq 'exchange-malware-policies'|ForEach-Object {$_.Items[0]});$e.Count=2
+ Check ('FileTypes '+$case.Name+' is not hidden by a complete sibling policy') ((By (Mail $r) $fileTypeId).Status -ceq 'Not assessed')
+ $e.Items[1].FileTypes=@()
+ Check ('FileTypes '+$case.Name+' remains unknown despite a known failing sibling') ((By (Mail $r) $fileTypeId).Status -ceq 'Not assessed')
+}
+$r=Sample;$e=@($r.Evidence|Where-Object SourceId -ceq 'exchange-malware-policies')[0]
+$e.Items+=@((Sample).Evidence|Where-Object SourceId -ceq 'exchange-malware-policies'|ForEach-Object {$_.Items[0]});$e.Count=2;$e.Items[1].FileTypes=@('exe')
+Check 'Complete and incomplete valid policy lists fail rather than merging their coverage' ((By (Mail $r) $fileTypeId).Status -ceq 'Needs action')
+$e.Items[0].FileTypes=@($fileTypes|Where-Object {$_ -cne 'exe'})
+Check 'Separate partial policy lists cannot jointly satisfy per-policy file coverage' ((By (Mail $r) $fileTypeId).Status -ceq 'Needs action')
+$e.Items[1].FileTypes=@('=MAIL_QA_RAW_EXTENSION')
+Check 'A later malformed policy overrides an earlier known file-type mismatch' ((By (Mail $r) $fileTypeId).Status -ceq 'Not assessed')
+$e.Items[0].FileTypes=@($fileTypes)
+Check 'A later malformed policy overrides an earlier complete file-type match' ((By (Mail $r) $fileTypeId).Status -ceq 'Not assessed')
 
 # Independently pinned Microsoft values prevent self-consistent but wrong profile
 # definitions from passing the generated scaffolding checks above.
@@ -330,21 +436,25 @@ $e.Items[0].Identity='=MAIL_QA_RAW_FORMULA';$e.Items[0].EnableFirstContactSafety
 $e.Items[0].AuthenticationFailAction='MAIL_QA_RAW_UNKNOWN_ENUM'
 $e.Items[0].ExcludedSenders=@('MAIL_QA_RAW_ADDRESS@example.test')
 $e.Items[0]|Add-Member -NotePropertyName RawUrl -NotePropertyValue 'https://sensitive.invalid/MAIL_QA_RAW_URL'
+$malware=@($r.Evidence|Where-Object SourceId -ceq 'exchange-malware-policies')[0]
+$malware.Items[0].FileTypes=@($fileTypes)+@('=MAIL_QA_RAW_EXTENSION','<MAIL_QA_RAW_EXTENSION>','https://sensitive.invalid/MAIL_QA_RAW_EXTENSION')
 $r.Metadata|Add-Member -NotePropertyName StatusDetailsSafe -NotePropertyValue 'MAIL_QA_RAW_METADATA'
 $before=$r|ConvertTo-Json -Depth 100
 $bundle=Export-FlapjacksPostureBundle -Result $r -OutputDirectory (Join-Path $work 'bundle')
 Check 'Full bundle export never mutates input' (($r|ConvertTo-Json -Depth 100) -ceq $before)
-Check 'Mail controls integrated additively with unique complete rows' ($bundle.PostureChecks -eq @(Get-FlapjacksAllPostureChecks -Result $r).Count -and $bundle.PostureChecks -gt $definitions.Count)
+Check 'Mail controls integrate additively into exactly 81 complete unique rows' ($bundle.PostureChecks -eq 81 -and $bundle.PostureChecks -eq @(Get-FlapjacksAllPostureChecks -Result $r).Count -and @((Get-FlapjacksAllPostureChecks -Result $r).ControlId|Sort-Object -Unique).Count -eq 81)
 Check 'Bundle still includes exactly 55 source records' ($bundle.Sources -eq 55)
 Check 'Full source-tagged artifact manifest validates' (Test-M365AuditManifest -Path $bundle.OutputDirectory).Valid
 $saved=Get-Content -LiteralPath (Join-Path $bundle.OutputDirectory 'evidence/exchange-antiphish-policies.json') -Raw|ConvertFrom-Json -Depth 100
 Check 'Private JSON retains exact raw identity, false Boolean and invalid original value' ($saved.Items[0].Identity -ceq '=MAIL_QA_RAW_FORMULA' -and $saved.Items[0].EnableFirstContactSafetyTips -is [bool] -and $saved.Items[0].EnableFirstContactSafetyTips -ceq $false -and $saved.Items[0].AuthenticationFailAction -ceq 'MAIL_QA_RAW_UNKNOWN_ENUM')
+$savedMalware=Get-Content -LiteralPath (Join-Path $bundle.OutputDirectory 'evidence/exchange-malware-policies.json') -Raw|ConvertFrom-Json -Depth 100
+Check 'Private JSON preserves hostile FileTypes without trusting or changing them' (($savedMalware.Items[0].FileTypes -join '|') -ceq ($malware.Items[0].FileTypes -join '|') -and (By (Mail $r) $fileTypeId).Status -ceq 'Not assessed')
 $inventory=@(Import-Csv -LiteralPath (Join-Path $bundle.OutputDirectory 'inventory.csv'))
 Check 'Private CSV preserves source attribution and neutralizes identity formula' (@($inventory|Where-Object {$_.SourceId -ceq 'exchange-antiphish-policies' -and $_.ObjectId -ceq "'=MAIL_QA_RAW_FORMULA"}).Count -gt 0)
 $display=Get-Content -LiteralPath (Join-Path $bundle.OutputDirectory 'Posture-Report.csv') -Raw
 $pdf=[Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes((Join-Path $bundle.OutputDirectory 'Posture-Report.pdf')))
 $zip=Read-Zip (Join-Path $bundle.OutputDirectory 'Posture-Report.xlsx');$allXml=$zip.Values -join "`n"
-Check 'CSV/PDF/XLSX display excludes raw policy identity/address/status/URL markers' (($display+$pdf+$allXml) -notmatch 'MAIL_QA_RAW_')
+Check 'CSV/PDF/XLSX display excludes raw policy identity/address/status/URL/extension markers' (($display+$pdf+$allXml) -notmatch 'MAIL_QA_RAW_')
 Check 'PDF and workbook visibly label fixture-only demonstration' ($pdf -match 'SYNTHETIC DEMONSTRATION' -and $allXml -match 'SYNTHETIC DEMONSTRATION')
 Check 'PDF has no active actions, URLs, scripts or attached raw files' ($pdf -notmatch '/(JavaScript|JS|Launch|URI|AcroForm|EmbeddedFile|OpenAction|AA)\b')
 Check 'XLSX has no formulas, external links, macros or hyperlinks' ($allXml -notmatch '<f(?:\s|>)|vbaProject|externalLink|TargetMode="External"|<hyperlink')
@@ -378,6 +488,6 @@ $rt=New-QARuntime @('A','AUDIT','Q');$history=Invoke-M365Terminal -Mode Syntheti
 Check 'A keeps original collection and no workbook/profile parameter' ($history.Count -eq 1 -and $history[0].SelectedCount -eq 46 -and -not $rt.State.Audits[0].ContainsKey('Workbook') -and -not $rt.State.Audits[0].ContainsKey('WorkbookAntiPhishBaseline') -and -not $rt.State.Audits[0].ContainsKey('WorkbookMailBaseline') -and $rt.State.ExternalCalls -eq 0)
 Check 'A keeps original five assessed controls and no implicit files' (@(Get-FlapjacksAllPostureChecks -Result $history[0]).Count -eq 5 -and -not $history[0].OutputPath)
 
-$result=[pscustomobject]@{Passed=$true;Checks=$script:Assertions.Count;SyntheticOnly=$true;MailControls=$definitions.Count;EvaluableMailControls=($definitions.Count-$unprofiled.Count);WorkbookControls=$bundle.PostureChecks;EvidenceRoot=$work;NotExercised=@('Real tenant calls','Sign-in/consent','Live Microsoft SDK/RBAC/licensing','Actual policy delivery/enforcement','Windows acceptance');Assertions=$script:Assertions.ToArray()}
+$result=[pscustomobject]@{Passed=$true;Checks=$script:Assertions.Count;SyntheticOnly=$true;MailControls=$definitions.Count;EvaluableMailControls=$definitions.Count;GlobalMailControls=$globalIds.Count;WorkbookControls=$bundle.PostureChecks;EvidenceRoot=$work;NotExercised=@('Real tenant calls','Sign-in/consent','Live Microsoft SDK/RBAC/licensing','Actual policy delivery/enforcement','Windows acceptance');Assertions=$script:Assertions.ToArray()}
 if($ResultsPath){$result|ConvertTo-Json -Depth 8|Set-Content -LiteralPath $ResultsPath}
 $result|Select-Object Passed,Checks,SyntheticOnly,EvidenceRoot

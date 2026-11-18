@@ -35,7 +35,7 @@ $sourceContract=@{
 }
 $required=@('Id','Name','SourceId','Target','Field','Kind','ValidValues','Standard','Strict','Rationale','Limitation','Reference','Access','Section')
 foreach ($definition in $definitions) {
-    Check ($definition.Id+' has the fixed public definition contract') ((@($definition.PSObject.Properties.Name | Where-Object { $_ -cne 'ExcludeBuiltIn' }) -join ',') -ceq ($required -join ','))
+    Check ($definition.Id+' has the fixed public definition contract') ((@($definition.PSObject.Properties.Name | Where-Object { $_ -cnotin @('ExcludeBuiltIn','Global') }) -join ',') -ceq ($required -join ','))
     if ($definition.SourceId -in @('exchange-safe-links-policies','exchange-safe-attachments-policies')) {
         Check ($definition.Id+' requires explicit exclusion of Built-in policy rows') ($definition.ExcludeBuiltIn -is [bool] -and $definition.ExcludeBuiltIn -eq $true)
     }
@@ -75,26 +75,36 @@ Check 'Safe Attachments exact Block profile and documented action domain' ($acti
 Check 'Safe Attachments Action cannot imply scanning on its own' ($action.Limitation -match 'only when Enable is true' -and $action.Limitation -match 'alone does not establish scanning')
 $action=Definition 'EOP-MALWARE-FILE-ACTION'
 Check 'Common-attachment exact Reject profile and documented action domain' ($action.Field -ceq 'FileTypeAction' -and $action.Kind -ceq 'Enumeration' -and $action.Standard -ceq 'Reject' -and $action.Strict -ceq 'Reject' -and ($action.ValidValues -join ',') -ceq 'Reject,Quarantine')
-Check 'Common-attachment action defers enablement and file-list coverage' ($action.Limitation -match 'EOP-FILE-FILTER' -and $action.Limitation -match 'FileTypes completeness is not assessed')
+Check 'Common-attachment action defers enablement and file-list coverage' ($action.Limitation -match 'EOP-FILE-FILTER' -and $action.Limitation -match 'EOP-MALWARE-FILE-TYPES')
 Check 'No specific-recommendation exception or notification fields are scored' (@($definitions | Where-Object Field -in @('DoNotRewriteUrls','EnableInternalSenderAdminNotifications','EnableExternalSenderAdminNotifications','RedirectAddress')).Count -eq 0)
 
-$organizationFields=@{
-    'MDO-ORG-COLLAB'='EnableATPForSPOTeamsODB'
-    'MDO-ORG-SAFEDOCS'='EnableSafeDocs'
-    'MDO-ORG-SAFEDOCS-OPEN'='AllowSafeDocsOpen'
+$organizationExpected=@{
+    'MDO-ORG-COLLAB'=@('EnableATPForSPOTeamsODB',$true)
+    'MDO-ORG-SAFEDOCS'=@('EnableSafeDocs',$true)
+    'MDO-ORG-SAFEDOCS-OPEN'=@('AllowSafeDocsOpen',$false)
 }
-foreach ($id in $organizationFields.Keys) {
+foreach ($id in $organizationExpected.Keys) {
+    $definition=Definition $id; $expected=$organizationExpected[$id]
+    Check ($id+' has the exact typed Microsoft global Boolean recommendation') ($definition.Field -ceq $expected[0] -and $definition.Kind -ceq 'Boolean' -and $definition.Global -is [bool] -and $definition.Global -ceq $expected[1] -and @($definition.ValidValues).Count -eq 0)
+    Check ($id+' remains explicitly outside Standard and Strict profiles') ($null -eq $definition.Standard -and $null -eq $definition.Strict)
+    Check ($id+' distinguishes its separate global recommendation') ($definition.Rationale -match 'Microsoft global recommendation' -and $definition.Rationale -match 'matching the Built-in protection column' -and $definition.Rationale -match 'Not a Standard/Strict recommendation' -and $definition.Limitation -match 'not a Standard or Strict preset setting')
+    Check ($id+' limits comparison to stored Entra-bound Exchange Online evidence') ($definition.Limitation -match 'Stored organization-level configuration from Entra-bound Exchange Online evidence only' -and $definition.Limitation -match 'Licensing and actual file handling are not verified' -and $definition.Access -match 'No new access is requested' -and $definition.Access -match 'eligibility is not established by this snapshot')
+}
+Check 'Only the three organization definitions carry Global expectations' (@($definitions | Where-Object { $_.PSObject.Properties.Name -ccontains 'Global' }).Count -eq 3 -and @($definitions | Where-Object { $_.Id -cnotlike 'MDO-ORG-*' -and $_.PSObject.Properties.Name -ccontains 'Global' }).Count -eq 0)
+foreach ($id in @('MDO-ORG-SAFEDOCS','MDO-ORG-SAFEDOCS-OPEN')) {
     $definition=Definition $id
-    Check ($id+' is explicitly unassessed for Standard and Strict') ($definition.Field -ceq $organizationFields[$id] -and $definition.Kind -ceq 'Boolean' -and $null -eq $definition.Standard -and $null -eq $definition.Strict)
-    Check ($id+' distinguishes its separate Built-in recommendation') ($definition.Rationale -match 'Separate Built-in protection recommendation' -and $definition.Rationale -match 'Not a Standard/Strict recommendation' -and $definition.Limitation -match 'not a Standard or Strict preset setting')
+    Check ($id+' records separate assigned SafeDocs service-plan eligibility') ($definition.Limitation -match 'assigned eligible Office 365 SafeDocs \(SAFEDOCS\) service plan' -and $definition.Limitation -match 'Defender for Office 365 Plan 1 or Plan 2 alone does not establish Safe Documents eligibility')
+    Check ($id+' records supported-client applicability without a licensed verdict') ($definition.Limitation -match 'Microsoft 365 Apps for enterprise clients \(version 2004 or later\)' -and $definition.Limitation -match 'Service-plan assignment, per-user availability and client applicability are not verified' -and $definition.Limitation -match 'no licensed or unlicensed verdict is inferred')
 }
-Check 'Safe Documents licensing is separate' ((Definition 'MDO-ORG-SAFEDOCS').Limitation -match 'licensing beyond Defender for Office 365')
-Check 'Global organization values cannot silently become false recommendations' (@($definitions | Where-Object { $null -eq $_.Standard -and $null -eq $_.Strict }).Count -eq 3)
+Check 'Collaboration switch does not imply SharePoint download restriction' ((Definition 'MDO-ORG-COLLAB').Limitation -match 'separate SharePoint infected-file download restriction is not assessed')
+Check 'Safe Documents click-through expectation does not imply enabled enforcement' ((Definition 'MDO-ORG-SAFEDOCS-OPEN').Limitation -match 'only when EnableSafeDocs is true' -and (Definition 'MDO-ORG-SAFEDOCS-OPEN').Limitation -match 'matching this value alone does not establish enforced blocking')
+Check 'Null profile values cannot silently become false recommendations' (@($definitions | Where-Object { $null -eq $_.Standard -and $null -eq $_.Strict }).Count -eq 3)
 Check 'All policy checks disclaim Built-in-only profile matching' (@($definitions | Where-Object { $_.SourceId -in @('exchange-safe-links-policies','exchange-safe-attachments-policies') -and $_.Limitation -notmatch 'Built-in protection policies are not evidence of a matching Standard or Strict policy' }).Count -eq 0)
 
 $before=Get-FlapjacksMailBaselineProtectionDefinitions | ConvertTo-Json -Depth 10 -Compress
 $definitions[0].Standard=$false
 (Definition 'MDO-ATTACH-ACTION').ValidValues[0]='InventedAction'
+(Definition 'MDO-ORG-SAFEDOCS-OPEN').Global=$true
 $after=Get-FlapjacksMailBaselineProtectionDefinitions | ConvertTo-Json -Depth 10 -Compress
 Check 'Each call returns fresh immutable-by-convention registry data' ($before -ceq $after)
 Check 'No tenant reads or writes when constructing recommendation data' ($script:liveCalls -eq 0)

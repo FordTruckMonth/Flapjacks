@@ -22,6 +22,7 @@ $subtests=@(
  @{Name='mail-presentation';Path="$root/Audit/tests/Test-MailBaselinePresentation.ps1";Parameters=@{}},
  @{Name='mail-gates';Path="$root/Audit/tests/Test-MailBaselineGates.ps1";Parameters=@{}},
  @{Name='mail-additive-projection';Path="$root/Audit/tests/Test-MailBaselineOptionalProjection.ps1";Parameters=@{}},
+ @{Name='mail-filetypes';Path="$root/Audit/tests/Test-MailBaselineFileTypes.ps1";Parameters=@{}},
  @{Name='authentication-display';Path="$root/tests/Test-AuthenticationDisplay.ps1";Parameters=@{ResultsPath=(Join-Path $EvidenceRoot 'authentication-display.json')}},
  @{Name='mailbox-snapshot';Path="$root/tests/Test-MailboxSnapshot.ps1";Parameters=@{ResultsPath=(Join-Path $EvidenceRoot 'mailbox-snapshot.json')}},
  @{Name='prerequisites';Path="$root/tests/Test-Prerequisites.ps1";Parameters=@{ResultsPath=(Join-Path $EvidenceRoot 'prerequisites.json')}},

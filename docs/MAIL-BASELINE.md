@@ -5,9 +5,9 @@ Documentation review: 2026-11-17. This is a bounded crosswalk from the mail them
 ## Selection and operation
 
 - Terminal **W / Recommend** selects the **Standard** mail comparison and displays that selection with its existing workbook read plan. It retains the single `WORKBOOK` organization-wide authorization for the displayed tenant and operator; choosing a comparison does not introduce another baseline prompt.
-- `Invoke-M365OrganizationAudit -Workbook -WorkbookMailBaseline Standard` or `Strict` explicitly selects the API comparison. API omission remains `None` for reproducibility; `-WorkbookMailBaseline None` explicitly declines it. The legacy `-WorkbookAntiPhishBaseline` parameter and the new alias select the same value, not independent baselines.
+- `Invoke-M365OrganizationAudit -Workbook -WorkbookMailBaseline Standard` or `Strict` explicitly selects the API comparison. API omission remains `None` for reproducibility; `-WorkbookMailBaseline None` explicitly declines profile-dependent comparisons. The three separate Microsoft Global comparisons still use their fixed published targets; `None` does not turn them into Standard/Strict checks. The legacy `-WorkbookAntiPhishBaseline` parameter and the new alias select the same value, not independent baselines.
 - The baseline selects local comparisons, not a tenant policy. It does not enable Standard/Strict presets or change any setting. Existing tenant/account matching, per-source session checks, scope checks, and access failures still apply.
-- This mail expansion adds **no collection source, Graph scope, provider, sign-in, consent, role activation, remediation, or message-content collection**. It uses the same Exchange `Get-*` commands and existing tenant/account/provider checks. The second batch adds six optional field projections only when `WorkbookExchange` is explicitly selected: three impersonation actions from `Get-AntiPhishPolicy`, and quarantine retention plus spam/phishing ZAP from `Get-HostedContentFilterPolicy`. Missing fields are not fetched by a fallback call.
+- This mail expansion adds **no collection source, Graph scope, provider, sign-in, consent, role activation, remediation, or message-content collection**. It uses the same Exchange `Get-*` commands and existing tenant/account/provider checks. The second batch adds six optional field projections only when `WorkbookExchange` is explicitly selected: three impersonation actions from `Get-AntiPhishPolicy`, and quarantine retention plus spam/phishing ZAP from `Get-HostedContentFilterPolicy`. Missing fields are not fetched by a fallback call. The third batch changes comparisons only: it adds no getter or projection and reuses the already selected `Get-AtpPolicyForO365` switches and `Get-MalwareFilterPolicy` `FileTypes`.
 - **A / Audit** retains its separate baseline. **P** renders the saved result locally; it does not recollect. The PDF, workbook Controls sheet, and presentation CSV use the same assessment rows. Source coverage remains a separate view.
 
 ## How to read an assessment
@@ -20,7 +20,7 @@ Older snapshots without the six optional fields remain usable for their existing
 
 The authority of the comparison also matters:
 
-1. **Microsoft recommendation:** a statically defined comparison with a specific Microsoft source. Report rationale labels this explicitly. Merely linking Microsoft documentation does not make an analyst rule a Microsoft recommendation. Three organization-level rows deliberately have no Standard/Strict target and remain unassessed.
+1. **Microsoft recommendation:** a statically defined comparison with a specific Microsoft source. Report rationale labels this explicitly. Merely linking Microsoft documentation does not make an analyst rule a Microsoft recommendation. Three organization-level rows deliberately have no Standard/Strict target. They instead use the separate `Microsoft global` recommendation label and Microsoft's published Global/Built-in protection values. The file-type check measures coverage of Microsoft's documented defaults, not an exhaustive dangerous-extension recommendation.
 2. **Analyst-selected rule:** for example, the existing connection safe-list review, the no-exceptions external-tagging rule, or accepting threshold 4 as meeting a Standard minimum of 3. These are not exact Microsoft preset claims.
 3. **No assessed policy scope:** the records do not establish which recipients receive these settings. No effective coverage percentage is calculated.
 
@@ -66,7 +66,7 @@ Outbound comparisons do not demonstrate that a Standard or Strict preset applies
 
 ### Safe Links, Safe Attachments, malware and global settings
 
-Definitions: [MailBaselineProtection.ps1](../terminal/Audit/src/MailBaselineProtection.ps1). All implemented Standard/Strict targets in this table are identical between profiles.
+Definitions: [MailBaselineProtection.ps1](../terminal/Audit/src/MailBaselineProtection.ps1) and [MailBaselineFileTypes.ps1](../terminal/Audit/src/MailBaselineFileTypes.ps1). All implemented Standard/Strict targets in this table are identical between profiles. The three Global targets are separate and are never substituted into either profile.
 
 | Workbook reference or theme | Implemented check and field | Comparison or remaining limit |
 |---|---|---|
@@ -76,20 +76,25 @@ Definitions: [MailBaselineProtection.ps1](../terminal/Audit/src/MailBaselineProt
 | Rows 51 and 52: Safe Attachments response and scanning | `MDO-ATTACH-ACTION`: `Action`; `MDO-ATTACH-ENABLE`: `Enable` | `Block`; `true`. These are separate policy fields. The action is meaningful only when scanning is enabled; neither check proves the associated rule is enabled or assigned. |
 | Safe Attachments redirection | `MDO-ATTACH-REDIRECT`: `Redirect` | `false`; `RedirectAddress` is not assessed. |
 | Row 56: malware ZAP | `EOP-MALWARE-ZAP`: `ZapEnabled` | `true`. No actual post-delivery purge is tested, and this says nothing about spam/phishing ZAP. |
-| Common-attachment response | `EOP-MALWARE-FILE-ACTION`: `FileTypeAction` | `Reject`. Existing `EOP-FILE-FILTER` separately compares `EnableFileFilter` to `true`; it is not duplicated. The contents/completeness of `FileTypes` are not scored. |
-| Rows 81 and 82: organization-level protection | `MDO-ORG-COLLAB`: `EnableATPForSPOTeamsODB`; `MDO-ORG-SAFEDOCS`: `EnableSafeDocs`; related `MDO-ORG-SAFEDOCS-OPEN`: `AllowSafeDocsOpen` | All three remain `Not assessed` for Standard/Strict. Their rationale gives separate Built-in protection guidance, not a fabricated profile target. Safe Documents has separate eligible-license requirements. |
+| Common-attachment response | `EOP-MALWARE-FILE-ACTION`: `FileTypeAction` | `Reject`. Existing `EOP-FILE-FILTER` separately compares `EnableFileFilter` to `true`; it is not duplicated. Default file-type coverage has its own check below; neither check establishes comprehensive filter contents or effective protection. |
+| Row 168: common-attachment file types | `EOP-MALWARE-FILE-TYPES`: `FileTypes` | Contains all **53 documented default types** for Standard and Strict; extra configured types are permitted. This is stored-list coverage only. Row 168 remains partial because its comprehensive/custom list and linked enabled-rule requirement are not established. |
+| Rows 81 and 82: organization-level protection | `MDO-ORG-COLLAB`: `EnableATPForSPOTeamsODB`; `MDO-ORG-SAFEDOCS`: `EnableSafeDocs`; related `MDO-ORG-SAFEDOCS-OPEN`: `AllowSafeDocsOpen` | Separate **Microsoft Global** targets are `true`, `true`, and `false`, respectively, from the published Built-in protection column. Standard/Strict targets remain undefined. Sufficient typed saved evidence permits assessment even when the profile is `None`; no effective protection or entitlement is inferred. |
+
+The Global targets come from [Microsoft's Global settings guidance](https://learn.microsoft.com/en-us/defender-office-365/recommended-settings-for-eop-and-office365#global-settings-for-safe-attachments), not a Standard/Strict preset. Safe Documents additionally requires an assigned eligible **Office 365 SafeDocs (`SAFEDOCS`)** service plan and **Microsoft 365 Apps for enterprise version 2004 or later**. Defender for Office 365 Plan 1 or Plan 2 alone does not include Safe Documents. The saved organization switches do not verify service-plan assignment, client support, per-user availability, or actual file handling. `AllowSafeDocsOpen = false` alone does not establish blocking when Safe Documents is disabled or unavailable. See [Safe Documents eligibility and client requirements](https://learn.microsoft.com/en-us/defender-office-365/safe-documents-in-e5-plus-security-about).
+
+The file-type target is the fixed default list documented in [Common attachments filter in anti-malware policies](https://learn.microsoft.com/en-us/defender-office-365/anti-malware-protection-about#common-attachments-filter-in-anti-malware-policies), not the separate optional portal list or a workbook-derived list. Every returned policy must cover all 53 defaults; matching ignores case, a single leading dot, duplicates, and order. A well-formed empty or incomplete list is `Needs action`; absent, null, scalar, or malformed evidence is `Not assessed`. Extra valid types do not cause a mismatch. Filter enablement and response remain separate checks, and rule linkage, rule enablement, targeting, actual type detection, and attachment handling are not resolved.
 
 The Safe Links and Safe Attachments checks require a Boolean `IsBuiltInProtection` flag to distinguish profiles. They exclude records marked `true`; a built-in-only response remains unassessed. Missing or malformed classification also prevents a pass. This separation is not an effective recipient-policy calculation.
 
 ### Coverage accounting
 
-The two batches add **50 mail definition rows**, of which **47** have Standard/Strict targets and **three global rows** deliberately do not. Combined with the existing 30 workbook-profile rows, the aggregate report has **80 rows**. Neither 50 nor 80 is a count of satisfied workbook controls.
+The three batches add **51 mail definition rows**: **48** profile-dependent comparisons and **three separately assessed Global comparisons**. Combined with the existing 30 workbook-profile rows, the aggregate report has **81 rows** over the same **55 selected sources**. The third batch adds one row (`EOP-MALWARE-FILE-TYPES`) and makes the three existing Global rows assessable; it does not add four rows or any sources. Neither 51 nor 81 is a count of satisfied workbook controls.
 
-An exact workbook upgrade requires the same setting **and a comparable predicate**, plus the stated evidence scope. With the **Standard** comparison, the strict same-setting/predicate mapping is now **41 of 134 workbook rows**: the prior 14 plus **27 additional matches**, at worksheet rows **30, 32, 33, 35, 36, 38, 40, 42, 44, 46, 49, 51, 52, 56, 57, 59, 61, 63, 65, 69, 71, 72, 75, 76, 77, 78, and 169**. The second batch contributes five of those matches: 36, 38, 40, 69, and 71. Its sixth definition, phishing ZAP, is separate from workbook row 71 and does not increase that count.
+An exact workbook upgrade requires the same setting **and a comparable predicate**, plus the stated evidence scope. With the **Standard** comparison plus the separate **Global** targets, the strict same-setting/predicate mapping is **43 of 134 workbook rows (32%)**: the prior 14 plus **29 additional matches**, at worksheet rows **30, 32, 33, 35, 36, 38, 40, 42, 44, 46, 49, 51, 52, 56, 57, 59, 61, 63, 65, 69, 71, 72, 75, 76, 77, 78, 81, 82, and 169**. Rows 81/82 count only as matches to the same Global enable toggles, not as Standard/Strict targets or effective-protection results. The related Safe Documents click-through check is not another exact workbook upgrade. **91 rows remain outside this comparable mapping.**
 
-Here, "strict mapping" describes the equivalence method, **not the Microsoft Strict profile**. Do not carry the 41/134 figure over to Strict: for example, row 40's `MoveToJmf` predicate differs from Strict's `Quarantine`. Rows 30/32 match the enable switches, not protected-list completeness. Rows 76–78 ask for recommended limits without fixed workbook numbers, so the explicit Microsoft values supply the comparison. This mapping is not a tenant pass count or proof of recipient coverage; missing optional fields in older snapshots still leave the corresponding checks unassessed.
+Here, "strict mapping" describes the equivalence method, **not the Microsoft Strict profile**. Do not carry the 43/134 figure over to Strict: for example, row 40's `MoveToJmf` predicate differs from Strict's `Quarantine`. Rows 30/32 match the enable switches, not protected-list completeness. Rows 76–78 ask for recommended limits without fixed workbook numbers, so the explicit Microsoft values supply the comparison. This is implementation coverage, not a tenant pass count or proof of recipient coverage; missing or insufficient saved fields still leave the corresponding checks unassessed.
 
-Keep row 67 (upper bound versus exact value), row 74 (system-controlled versus explicit forwarding off), row 79 (administrator notification not verified), and rows 81/82 (no assessed Standard/Strict target) separate from exact upgrades. A broader Microsoft comparison can still be useful without being equivalent to a workbook row. The shared evaluation logic is in [MailBaseline.ps1](../terminal/Audit/src/MailBaseline.ps1).
+Keep row 67 (upper bound versus exact value), row 74 (system-controlled versus explicit forwarding off), row 79 (administrator notification not verified), and row 168 (comprehensive/custom file-type list plus a linked enabled rule not established) separate from exact upgrades. The separate phishing ZAP check likewise does not add another exact row 71 match. A broader Microsoft comparison can still be useful without being equivalent to a workbook row. The shared evaluation logic is in [MailBaseline.ps1](../terminal/Audit/src/MailBaseline.ps1).
 
 ## Source coverage is not recipient coverage
 
@@ -104,7 +109,7 @@ Built-in protection also differs from Standard/Strict and can cover recipients o
 - **Impersonation completeness:** action comparisons now exist, but impersonation quarantine tags, whether protected-person/domain lists cover the right population, and dependency-aware effective protection remain unassessed. Stored actions do not prove their prerequisites or actual message handling.
 - **DMARC and spoof details:** `HonorDmarcPolicy`, `DmarcQuarantineAction`, `DmarcRejectAction`, `SpoofQuarantineTag`, `EnableUnauthenticatedSender`, and `EnableViaTag` are not selected. No SPF, DKIM, or DMARC DNS/delivery validation is performed.
 - **Spam completeness:** retention and spam/phishing ZAP now have separate optional-field comparisons. Quarantine policies, release rights, notifications, ASF settings, bulk-filter enablement, actual expiry, and purge outcomes remain unassessed. Matching a stored setting does not prove its prerequisite or effective behavior.
-- **Attachment/URL completeness:** file-type-list suitability, quarantine settings, encrypted-attachment controls, URL rewrite exceptions, notification presentation, and the separate SharePoint malicious-file download restriction are not assessed. No specific Microsoft recommendation is inferred for fields the cited guidance leaves to business choice.
+- **Attachment/URL completeness:** documented default file-type coverage is assessed, but comprehensive list suitability and linked enabled-rule coverage remain unassessed. Quarantine settings, encrypted-attachment controls, URL rewrite exceptions, notification presentation, and the separate SharePoint malicious-file download restriction are not assessed. No specific Microsoft recommendation is inferred for fields the cited guidance leaves to business choice.
 - **Licensing and access:** eligible Defender features, per-recipient entitlements, role availability, and actual service behavior are not inferred from tenant SKUs, policy existence, a missing cmdlet, or an empty response. Access failures remain gaps rather than insecure/secure verdicts.
 - **Actual protection:** no mail-flow simulation, message-header analysis, delivery test, false-positive measurement, audit-ingestion test, or change to tenant configuration. No complete workbook parity, certification, posture score, or live acceptance claim.
 
@@ -112,6 +117,8 @@ Built-in protection also differs from Standard/Strict and can cover recipients o
 
 The implementation uses selected comparisons, not the entirety of these sections. The source page is [Recommended email and collaboration threat policy settings for cloud organizations](https://learn.microsoft.com/en-us/defender-office-365/recommended-settings-for-eop-and-office365).
 
+- [Common attachments filter: documented default file types](https://learn.microsoft.com/en-us/defender-office-365/anti-malware-protection-about#common-attachments-filter-in-anti-malware-policies)
+- [Safe Documents entitlement and supported clients](https://learn.microsoft.com/en-us/defender-office-365/safe-documents-in-e5-plus-security-about)
 - [Anti-malware policy settings](https://learn.microsoft.com/en-us/defender-office-365/recommended-settings-for-eop-and-office365#anti-malware-policy-settings)
 - [Anti-spam policy settings](https://learn.microsoft.com/en-us/defender-office-365/recommended-settings-for-eop-and-office365#anti-spam-policy-settings)
 - [Outbound spam policy settings](https://learn.microsoft.com/en-us/defender-office-365/recommended-settings-for-eop-and-office365#outbound-spam-policy-settings)
@@ -123,3 +130,16 @@ The implementation uses selected comparisons, not the entirety of these sections
 - [Safe Links policy settings](https://learn.microsoft.com/en-us/defender-office-365/recommended-settings-for-eop-and-office365#safe-links-policy-settings)
 
 Related local contracts: [workbook expansion](WORKBOOK-POSTURE.md), [source catalog](../terminal/Audit/src/Catalog.ps1), [source documentation](../terminal/Audit/docs/SOURCES.md), and [permissions](../terminal/Audit/docs/PERMISSIONS.md). Local synthetic tests validate implementation paths, not a live tenant or effective enforcement.
+
+## Local verification
+
+From the repository root, use PowerShell **7.4 or newer** for the focused offline checks:
+
+```powershell
+./terminal/Audit/tests/Test-MailBaselineProtection.ps1
+./terminal/Audit/tests/Test-MailBaselineFileTypes.ps1
+./terminal/Audit/tests/Test-MailBaselineGates.ps1
+./terminal/Audit/tests/Test-MailBaselinePresentation.ps1
+```
+
+The full local regression entry points remain `./tests/Test-All.ps1` and `./terminal/tests/Test-All.ps1`; the Audit suite's `./terminal/Audit/tests/Test-All.ps1` also parses every shipped Audit PowerShell file for syntax errors. These are synthetic/local checks, not tenant reads, licensing validation, or live acceptance. Run syntax checks and the applicable focused and aggregate tests against the final edited tree; passing only the focused checks is not a full regression pass.

@@ -2,11 +2,11 @@
 
 ![Flapjacks: pixel-art pancakes beside a security audit checklist.](docs/assets/flapjacks-banner.png)
 
-Flapjacks is a tenant-level Microsoft 365 posture-review tool. The [first-stage Microsoft/NIST mapping](terminal/docs/POSTURE-MAPPING.md) makes evidence boundaries and unassessed areas explicit; it is not a compliance certification.
+Flapjacks is a read-only, tenant-level Microsoft 365 posture-review tool. The [first-stage Microsoft/NIST mapping](terminal/docs/POSTURE-MAPPING.md) makes evidence boundaries and unassessed areas explicit; it is not a compliance certification.
 
 ## Start with Audit
 
-The new **[PowerShell-only terminal application](terminal/README.md)** combines an organization configuration audit and target-mailbox log collection. No localhost, local web server, HTML UI or automatic browser launch.
+The **[PowerShell-only terminal application](terminal/README.md)** is the primary interface for organization configuration review and local posture reports. It also retains the separately scoped target-mailbox log collector described below. No localhost, local web server, HTML UI or automatic browser launch.
 
 ```powershell
 # PowerShell 7.4+; from this repository directory:
@@ -60,10 +60,6 @@ Export-FlapjacksPostureBundle -Result $result -OutputDirectory '/path/to/another
 The bundle contains `Posture-Report.pdf` (control table and a separate coverage section), `Posture-Report.xlsx` (control and coverage tabs), and `Posture-Report.csv` (control table). It also retains `checks.csv/json`, `coverage.csv`, `inventory.csv`, `observations.csv`, `audit.json`, `collection-plan.json`, `evidence/*.json`, and one `manifest.json`. Evidence is the selected payload that Flapjacks saved, not original network bytes. Workbook posture does not collect sign-in events, Unified Audit Log events, message trace or mailbox activity; use separately authorized workflows for activity logs. Existing destinations must not be overwritten. Synthetic results remain explicitly synthetic; access failures and incomplete sources remain visible. The default terminal workflow still saves nothing until requested.
 
 **Treat the whole bundle as sensitive internal evidence, not a redacted public report.** Inventory/raw JSON can contain tenant policy identities, addresses, targeting and infrastructure details even without message bodies or credentials. Keep it on approved local storage; review before any separate sharing. Spreadsheet formula-leading text must remain neutralized in CSV, and report text must remain inert. Hashes demonstrate file consistency, not source authenticity, completeness or effective security. No live-tenant validation or production-readiness claim follows from an offline export test.
-
-## Optional BEC handoff
-
-Export a single-mailbox **current** rules/forwarding/delegation snapshot using the [local snapshot contract and minimal smoke guide](terminal/docs/MAILBOX-SNAPSHOT.md). This is separate from the wider historical Pull Logs action. No live-tenant validation is claimed. Original entrypoints remain compatible; repository URLs are unchanged.
 
 ## Prerequisites and installation
 

@@ -3,6 +3,7 @@ function Get-FlapjacksMailBaselineDefinitions {
     Get-FlapjacksMailBaselineAntiphishDefinitions
     Get-FlapjacksMailBaselineSpamDefinitions
     Get-FlapjacksMailBaselineProtectionDefinitions
+    Get-FlapjacksMailBaselineFileTypesDefinitions
 }
 
 function Get-FlapjacksMailBaselineChecks {
@@ -36,10 +37,17 @@ function Get-FlapjacksMailBaselineChecks {
         $contract=$catalog[$def.SourceId]
         if($null -eq $contract -or $contract.Provider -cne 'Exchange' -or $def.Target -cne $contract.Target -or
             $def.Field -cnotin (@($contract.Fields)+@((Get-AuditProperty $contract 'OptionalFields' @()))) -or -not $ids.Add($def.Id) -or
-            $def.Reference -cnotmatch '^https://learn\.microsoft\.com/en-us/defender-office-365/recommended-settings-for-eop-and-office365#[a-z0-9-]+$'){
+            ($def.Reference -cnotmatch '^https://learn\.microsoft\.com/en-us/defender-office-365/recommended-settings-for-eop-and-office365#[a-z0-9-]+$' -and
+             $def.Reference -cne 'https://learn.microsoft.com/en-us/defender-office-365/anti-malware-protection-about#common-attachments-filter-in-anti-malware-policies')){
             throw 'Invalid or duplicate Microsoft mail-control definition.'
         }
-        $expected=if($Baseline -ne 'None'){Get-AuditProperty $def $Baseline}else{$null}
+        $global=Get-AuditProperty $def 'Global'
+        $hasGlobal=$global -is [bool]
+        $referenceProfile=if($hasGlobal){'Microsoft global'}else{$Baseline}
+        $expected=if($hasGlobal){$global}elseif($Baseline -ne 'None'){Get-AuditProperty $def $Baseline}else{$null}
+        if($def.Kind -ceq 'ContainsAllFileTypes' -and $null -ne $expected){
+            if(-not (IsList $expected) -or @($expected).Count -ne 53 -or @($expected|Sort-Object -Unique).Count -ne 53){throw 'Invalid documented extension definition.'}
+        }
         $source=$byId[$def.SourceId]; $validatedValueCount=0;$matching=0
         $idsForLocal=[Collections.Generic.List[string]]::new();$observedValues=[Collections.Generic.List[object]]::new()
         $status='Not assessed'
@@ -49,7 +57,7 @@ function Get-FlapjacksMailBaselineChecks {
         $missing=Get-AuditProperty $source 'MissingFields'
         $state=Get-AuditProperty $source 'Status' 'Missing'
         $builtInSkipped=0
-        if($Baseline -eq 'None') {
+        if($Baseline -eq 'None' -and -not $hasGlobal) {
             $reason='No Microsoft Standard or Strict comparison profile was selected.'
         }elseif($null -eq $expected){
             $reason='Microsoft does not define this setting for the selected Standard/Strict policy profile.'
@@ -92,6 +100,14 @@ function Get-FlapjacksMailBaselineChecks {
                                 }
                             }
                         }
+                        'ContainsAllFileTypes' {
+                            if((IsList $value) -and -not @($value|Where-Object {$_ -isnot [string] -or $_ -notmatch '\A\.?[A-Za-z0-9]{1,16}\z'}).Count){
+                                $seenTypes=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+                                foreach($extension in $value){[void]$seenTypes.Add($extension.TrimStart('.'))}
+                                $hasCount=@($expected|Where-Object {$seenTypes.Contains($_)}).Count
+                                $valid=$true;$meets=$hasCount -eq @($expected).Count
+                            }
+                        }
                         'EmptyList' {
                             if((IsList $value) -and -not @($value | Where-Object {$null -eq $_ -or $_ -isnot [string] -or [string]::IsNullOrWhiteSpace($_)}).Count) {
                                 $valid=$true; $meets=@($value).Count -eq 0
@@ -99,7 +115,7 @@ function Get-FlapjacksMailBaselineChecks {
                         }
                     }
                     if(-not $valid){if(-not $reason){$reason='A required value is missing, unrecognized, out of range or the wrong type.'};break}
-                    if($def.Kind -eq 'EmptyList'){$observedValues.Add(@($value).Count)}else{$observedValues.Add($value)}
+                    if($def.Kind -eq 'EmptyList'){$observedValues.Add(@($value).Count)}elseif($def.Kind -ceq 'ContainsAllFileTypes'){$observedValues.Add($hasCount)}else{$observedValues.Add($value)}
                     $validatedValueCount++
                     if($meets){$matching++}
                     $object=Get-AuditProperty $item 'Identity'
@@ -108,11 +124,12 @@ function Get-FlapjacksMailBaselineChecks {
                 if(-not $reason -and $validatedValueCount -eq 0){$reason='Only built-in protection records were returned; their settings are separate from Standard and Strict.'}
                 if(-not $reason){
                     $status=if($matching -eq $validatedValueCount){'Meets selected setting'}else{'Needs action'}
-                    $reason="$matching of $validatedValueCount applicable saved records match the $Baseline recommendation."
-                    if($def.Kind -eq 'EmptyList' -or $def.Kind -like 'Integer*'){
+                    $reason="$matching of $validatedValueCount applicable saved records match the $referenceProfile recommendation."
+                    if($def.Kind -in @('EmptyList','ContainsAllFileTypes') -or $def.Kind -like 'Integer*'){
                         $range=$observedValues | Measure-Object -Minimum -Maximum
                         $observedText=if($range.Minimum -eq $range.Maximum){[string]$range.Minimum}else{[string]$range.Minimum+' to '+[string]$range.Maximum}
                         if($def.Kind -eq 'EmptyList'){$reason+=" Observed $($def.Field) entries per record: $observedText."}
+                        elseif($def.Kind -ceq 'ContainsAllFileTypes'){$reason+=" Documented default types present per record: $observedText of $(@($expected).Count)."}
                         else{$reason+=" Observed $($def.Field): $observedText."}
                     }else{
                         $displayValues=if($def.Kind -eq 'Boolean'){@($observedValues | ForEach-Object {$_.ToString().ToLowerInvariant()} | Sort-Object -Unique)}
@@ -128,12 +145,13 @@ function Get-FlapjacksMailBaselineChecks {
         }else{
             $predicate=switch($def.Kind){
                 'EmptyList'{$def.Field+' has no entries'}
+                'ContainsAllFileTypes'{$def.Field+' contains all '+@($expected).Count+' documented default types'}
                 'IntegerMin'{$def.Field+' >= '+$expected}
                 'IntegerMax'{$def.Field+' <= '+$expected}
                 'Boolean'{$def.Field+' = '+$expected.ToString().ToLowerInvariant()}
                 default{$def.Field+' = '+$expected}
             }
-            "$Baseline recommendation: $predicate."
+            "$referenceProfile recommendation: $predicate."
         }
         $timestamp=Get-AuditProperty $source 'CollectedAtUtc' ''
         if($timestamp -is [datetime] -or $timestamp -is [datetimeoffset]){$timestamp=$timestamp.ToUniversalTime().ToString('o',[Globalization.CultureInfo]::InvariantCulture)}
@@ -141,7 +159,7 @@ function Get-FlapjacksMailBaselineChecks {
         [pscustomobject][ordered]@{
             ControlId=$def.Id;Control=$def.Name;Status=$status;SourceId=$def.SourceId;Field=$def.Field;SourceStatus=$state
             EvidenceIds=$idsForLocal.ToArray();EvidenceTime=$timestamp;Observed=$reason;Expected=$desired;Rationale=$def.Rationale
-            Limitation=$def.Limitation;Reference=$def.Reference;ProfileVersion=('Flapjacks Microsoft mail policy 0.1 / '+$Baseline)
+            Limitation=$def.Limitation;Reference=$def.Reference;ProfileVersion=$(if($hasGlobal){'Flapjacks Microsoft global mail policy 0.1'}else{'Flapjacks Microsoft mail policy 0.1 / '+$Baseline})
             NistCsf20EvidenceMapping='PR.PS-01';NistFramework='NIST CSF 2.0'
             NistReference='https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final'
             NistMappingNote='Analyst-selected supporting evidence only; not NIST outcome attainment.'
