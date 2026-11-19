@@ -2,24 +2,9 @@
 
 Flapjacks leads with **Audit**, the existing 46-source organization configuration review. This optional handoff is a separate, narrowly scoped current-mailbox collector/export for BEC analysis. Neither path certifies that a tenant is secure. The old `Start-M365Toolkit.ps1` and legacy collectors remain unchanged in purpose; `Start-Flapjacks.ps1` is a compatible branded entrypoint. No GitHub repository rename is part of this local change.
 
-## Offline demo and tests (no Microsoft account, module, or network)
+## Validation boundaries
 
-From the repository directory in PowerShell 7.4+:
-
-```powershell
-./terminal/Start-Flapjacks.ps1 -Mode Synthetic
-./terminal/tests/Test-MailboxSnapshot.ps1
-./terminal/tests/Test-All.ps1
-
-# Optional local synthetic export. Choose an existing private directory and a NEW file.
-Import-Module ./terminal/M365Toolkit.psm1 -DisableNameChecking
-$result = Get-Content ./terminal/fixtures/mailbox-snapshot-input.synthetic.json -Raw | ConvertFrom-Json -Depth 100
-Export-ToolkitMailboxSnapshot -Result $result `
-  -TenantId '11111111-2222-3333-4444-555555555555' `
-  -Path './flapjacks-SYNTHETIC.json'
-```
-
-The example tenant and mailbox are synthetic. Do not replace their identifiers to present fixture results as live evidence. Tests use injected command responses only, including denial, wrong-tenant and wrong-mailbox cases. Existing broad Logs fixture tests remain independent.
+QA datasets and dependent scenarios are retained only in a separate private QA copy. From the repository root, `./tools/Test-ReleaseBoundary.ps1` performs static source checks without collection. Existing saved files keep their declared provenance when exported; never relabel fixture results as live evidence.
 
 ## Proposed manual single-mailbox smoke (not yet executed live)
 
@@ -56,13 +41,13 @@ The operator completes Microsoft's device-code sign-in in an approved browser/de
 Run the smallest in-memory smoke, replacing the example UPN:
 
 ```powershell
-$snapshot = ./terminal/Get-CurrentMailboxSnapshot.ps1 -MailboxUpn 'person@your-domain.example'
+$snapshot = ./terminal/Get-CurrentMailboxSnapshot.ps1 -Mode Live -MailboxUpn 'person@your-domain.example'
 $snapshot.sources.GetEnumerator() | ForEach-Object {
     [pscustomobject]@{Source=$_.Key;Status=$_.Value.status;Records=$_.Value.records.Count}
 }
 ```
 
-The script displays verified tenant/operator, exact mailbox and reads, then requires `SNAPSHOT <verified-tenant-guid> <exact-input-UPN>`. A mismatch stops before collection. It resolves one mailbox first and refuses alias/mismatched resolution; no additional mailbox commands then run. Session tenant/operator are rechecked before each read. There are four logical reads (transient/provider retries may issue additional requests):
+Both this launcher and the exported `Invoke-ToolkitCurrentMailboxSnapshot` workflow require explicit `-Mode Live` before any session inspection or collection. This is an existing live-only collector, not a replacement for a fixture default. The script then displays verified tenant/operator, exact mailbox and reads, and requires `SNAPSHOT <verified-tenant-guid> <exact-input-UPN>`. A mismatch stops before collection. It resolves one mailbox first and refuses alias/mismatched resolution; no additional mailbox commands then run. Session tenant/operator are rechecked before each read. There are four logical reads (transient/provider retries may issue additional requests):
 
 1. `Get-Mailbox -Identity <UPN>` for forwarding and SendOnBehalf fields.
 2. `Get-InboxRule -Mailbox <UPN> -IncludeHidden -ResultSize 1000`. At 1000 returned records, status is partial, never complete.
@@ -75,25 +60,19 @@ To intentionally save during a later run, pass `-OutputPath` pointing to a new f
 
 ## Shared data contract
 
-Top level:
+Top-level fields (schema description only; no sample evidence is distributed):
 
-```json
-{
-  "schema": "response-menu.mailbox-snapshot.v1",
-  "tenant_id": "11111111-2222-3333-4444-555555555555",
-  "mailbox_upn": "alex@contoso.example",
-  "acquired_at": "2026-11-11T00:00:00.0000000Z",
-  "synthetic": true,
-  "evidence_class": "reserialized-source-objects",
-  "sources": {
-    "inbox_rules": {"status":"collected","records":[]},
-    "forwarding": {"status":"collected","records":[]},
-    "delegates": {"status":"collected","records":[]}
-  }
-}
-```
+| Field | Meaning |
+|---|---|
+| `schema` | `response-menu.mailbox-snapshot.v1` |
+| `tenant_id` | Verified session tenant GUID supplied to the serializer |
+| `mailbox_upn` | Canonical mailbox UPN |
+| `acquired_at` | Collection completion time with UTC/timezone information |
+| `synthetic` | Preserved input provenance; never relabel historical fixture input as live |
+| `evidence_class` | `reserialized-source-objects` |
+| `sources` | Inbox rules, forwarding and delegates, each with status and a records array |
 
-This schematic is not evidence; use the explicit synthetic fixture for actual records. Each group has `collected`, `partial`, `denied`, or `unavailable` coverage. All `records` are arrays, including zero/one record cases. The exact source shapes are:
+Each group has `collected`, `partial`, `denied`, or `unavailable` coverage. All `records` are arrays, including zero/one record cases. The exact source shapes are:
 
 - `inbox_rules.records`: unchanged in-memory `Exchange.Rules.Items` objects serialized to JSON.
 - `forwarding.records`: whole `Exchange.Mailbox.Items` objects, **not just forwarding fields**. Inspect `ForwardingAddress`, `ForwardingSmtpAddress`, `DeliverToMailboxAndForward`; missing properties mean partial, not disabled. Whole-object serialization can include additional mailbox metadata.
@@ -101,7 +80,7 @@ This schematic is not evidence; use the explicit synthetic fixture for actual re
 
 Delegates are collected only if all three components were collected and SendOnBehalf is present. Mixed success/failure is partial; all denied is denied; no successful component is unavailable otherwise. This compact group contract cannot carry every original per-component reason, query log or timeline; retain the original investigation result for those details. A missing group source is unavailable, never a clean bill of health. A collected empty list only describes what that command returned under that session's permissions. No privilege-expansion inference is made.
 
-`acquired_at` is overall collection completion in UTC, not an atomic transaction time or historic event timestamp. Current data can change between reads. `synthetic` comes from explicit Fixture/Live mode; unknown provenance is refused. Tenant identity is supplied by the verified session at the entrypoint; the serialization helper trusts its caller and does not authenticate or independently attest a supplied tenant GUID. `mailbox_upn` is lowercased; use canonical UPN results, not legacy SMTP-alias results.
+`acquired_at` is overall collection completion in UTC, not an atomic transaction time or historic event timestamp. Current data can change between reads. `synthetic` comes from the existing result's declared Fixture/Live provenance; unknown provenance is refused. Public collectors produce Live results only; the serializer preserves older saved inputs without replaying their collection. Tenant identity is supplied by the verified session at the entrypoint; the serialization helper trusts its caller and does not authenticate or independently attest a supplied tenant GUID. `mailbox_upn` is lowercased; use canonical UPN results, not legacy SMTP-alias results.
 
 This is **reserialized source objects**, not original HTTP bytes, signed evidence, a raw export, or a complete tenant timeline. No current field is used to reconstruct earlier mailbox state. Historical data is rejected by the exporter. Existing collector results can be passed to `ConvertTo-ToolkitMailboxSnapshot` or `Export-ToolkitMailboxSnapshot` without further network reads; these helper functions do not perform authentication, consent or evidence acquisition.
 

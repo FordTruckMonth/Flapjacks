@@ -10,10 +10,10 @@ function Get-M365OrganizationAuditPlan {
     $plan | Add-Member -NotePropertyName ConfirmationRequired -NotePropertyValue ('Verify signed-in delegated account and tenant binding, and explicitly authorize organization-wide configuration collection. Interactive Flapjacks uses one '+$word+' confirmation; direct API callers must supply matching confirmed tenant ID. No tenant writes or log collection.')
     return $plan
 }
-function Invoke-M365OrganizationAudit {
+function Invoke-FlapjacksOrganizationAuditCore {
     [CmdletBinding()]
     param(
-        [ValidateSet('Synthetic','Live')][string]$Mode='Synthetic',
+        [ValidateSet('Live')][string]$Mode,
         [string]$OutputPath='',
         [guid]$TenantId=[guid]::Empty,
         [string]$ExpectedAccount='',
@@ -24,8 +24,9 @@ function Invoke-M365OrganizationAudit {
         [switch]$Workbook, [object]$WorkbookCollaborationSnapshot=$null,
         [Alias('WorkbookMailBaseline')][ValidateSet('None','Standard','Strict')][string]$WorkbookAntiPhishBaseline='None'
     )
+    if(-not $PSBoundParameters.ContainsKey('Mode')){throw 'Live audit requires an explicit -Mode Live. No session was inspected and nothing was collected or written.'}
     $include=(Get-M365OrganizationAuditPlan -Workbook:$Workbook).SelectedGroups | Where-Object { $_ -ne 'Core' }
-    Invoke-M365SecurityAudit -Mode $Mode -OutputPath $OutputPath -TenantId $TenantId -ExpectedAccount $ExpectedAccount `
+    Invoke-FlapjacksAuditCore -Mode $Mode -OutputPath $OutputPath -TenantId $TenantId -ExpectedAccount $ExpectedAccount `
         -ConfirmTenantId $ConfirmedTenantId -ConfirmOrganizationScope:$ConfirmOrganizationWide `
         -Include $include -WorkbookCollaborationSnapshot $WorkbookCollaborationSnapshot -WorkbookAntiPhishBaseline $WorkbookAntiPhishBaseline `
         -MaxPages $MaxPages -MaxRecords $MaxRecords
@@ -84,4 +85,22 @@ function Write-M365AuditSource {
     Write-Host ('Displaying {0} records from offset {1}; total collected {2}. This view does not change collection coverage.' -f $items.Count,$Offset,$source.Count)
     $json=ConvertTo-Json -InputObject $items -Depth 100 -WarningAction Stop
     foreach ($line in ($json -split '\r?\n')) { Write-Host (ConvertTo-AuditTerminalText $line) }
+}
+
+function Invoke-M365OrganizationAudit {
+    [CmdletBinding()]
+    param(
+        [ValidateSet('Live')][string]$Mode,
+        [string]$OutputPath='',
+        [guid]$TenantId=[guid]::Empty,
+        [string]$ExpectedAccount='',
+        [guid]$ConfirmedTenantId=[guid]::Empty,
+        [switch]$ConfirmOrganizationWide,
+        [ValidateRange(1,10000)][int]$MaxPages=100,
+        [ValidateRange(1,1000000)][int]$MaxRecords=50000,
+        [switch]$Workbook, [object]$WorkbookCollaborationSnapshot=$null,
+        [Alias('WorkbookMailBaseline')][ValidateSet('None','Standard','Strict')][string]$WorkbookAntiPhishBaseline='None'
+    )
+    if(-not $PSBoundParameters.ContainsKey('Mode')){throw 'Live audit requires an explicit -Mode Live. No session was inspected and nothing was collected or written.'}
+    Invoke-FlapjacksOrganizationAuditCore @PSBoundParameters
 }

@@ -1,7 +1,7 @@
 #Requires -Version 7.4
 [CmdletBinding()]
 param(
-    [ValidateSet('Synthetic','Plan','Live')][string]$Mode='Synthetic',
+    [ValidateSet('Plan','Live')][string]$Mode='Plan',
     [string]$OutputPath='',
     [guid]$TenantId=[guid]::Empty,
     [string]$ExpectedAccount='',

@@ -1,6 +1,6 @@
 # Authorship and validation provenance
 
-The UTC date helper and its two original test files were authored by Claw, with guided corrections. The original independent 18-case pager evaluator is preserved in tests/Test-Pager.Operator.ps1.
+The UTC date helper and its two original test files were authored by Claw, with guided corrections. The original helper tests and independent 18-case pager evaluator are preserved in the separate private QA copy; they are absent from the proposed public tree.
 
 The shared pager replacement, compatibility wrapper, live collectors, normalization/correlation, output and manifest code, CLI, synthetic data, expanded tests and documentation were subsequently implemented with AI assistance. Historical development snapshots and machine-specific records are not part of this public distribution.
 

@@ -14,10 +14,10 @@ function Get-M365AuditPlan {
         ConnectionPolicy='Use separately authorized existing sessions only. No auth, grants, module installs or role activation performed.';
         Sources=$selected }
 }
-function Invoke-M365SecurityAudit {
+function Invoke-FlapjacksAuditCore {
     [CmdletBinding()]
     param(
-        [ValidateSet('Synthetic','Live')][string]$Mode='Synthetic',
+        [ValidateSet('Live')][string]$Mode,
         [ValidateSet('Authentication','Consent','Administration','TenantInventory','Intune','Exchange','Purview','WorkbookIdentity','WorkbookExchange','WorkbookCollaboration')][string[]]$Include=@(),
         [string]$OutputPath='',[guid]$TenantId=[guid]::Empty,
         [string]$ExpectedAccount='', [guid]$ConfirmTenantId=[guid]::Empty, [switch]$ConfirmOrganizationScope,
@@ -25,13 +25,12 @@ function Invoke-M365SecurityAudit {
         [object]$WorkbookCollaborationSnapshot=$null,
         [Alias('WorkbookMailBaseline')][ValidateSet('None','Standard','Strict')][string]$WorkbookAntiPhishBaseline='None'
     )
-    if ($Mode -eq 'Live') {
-        # Reject before touching sessions, making requests or reserving a report directory.
-        if ($TenantId -eq [guid]::Empty) { throw 'Live audit requires an explicit non-empty tenant ID. Nothing was collected.' }
-        if (-not $ConfirmOrganizationScope) { throw 'Organization-wide configuration audit was not confirmed. Nothing was collected.' }
-        if ($ConfirmTenantId -eq [guid]::Empty -or $ConfirmTenantId -ne $TenantId) { throw 'Confirmed tenant ID does not match the requested tenant. Nothing was collected.' }
-        if ([string]::IsNullOrWhiteSpace($ExpectedAccount) -or $ExpectedAccount -notmatch '^[^\s@]+@[^\s@]+$') { throw 'ExpectedAccount must identify the signed-in administrator account. Nothing was collected.' }
-    }
+    if(-not $PSBoundParameters.ContainsKey('Mode')){throw 'Live audit requires an explicit -Mode Live. No session was inspected and nothing was collected or written.'}
+    # Reject before touching sessions, making requests or reserving a report directory.
+    if ($TenantId -eq [guid]::Empty) { throw 'Live audit requires an explicit non-empty tenant ID. Nothing was collected.' }
+    if (-not $ConfirmOrganizationScope) { throw 'Organization-wide configuration audit was not confirmed. Nothing was collected.' }
+    if ($ConfirmTenantId -eq [guid]::Empty -or $ConfirmTenantId -ne $TenantId) { throw 'Confirmed tenant ID does not match the requested tenant. Nothing was collected.' }
+    if ([string]::IsNullOrWhiteSpace($ExpectedAccount) -or $ExpectedAccount -notmatch '^[^\s@]+@[^\s@]+$') { throw 'ExpectedAccount must identify the signed-in administrator account. Nothing was collected.' }
     if ($WorkbookAntiPhishBaseline -ne 'None' -and 'WorkbookExchange' -notin $Include) { throw 'Explicit workbook Exchange selection is required for an anti-phishing baseline.' }
     $snapshots=@{}
     if ($null -ne $WorkbookCollaborationSnapshot) {
@@ -49,24 +48,12 @@ function Invoke-M365SecurityAudit {
     $catalog=@(Get-AuditSourceCatalog)
     $catalog+=@($plan.Sources | Where-Object { $_.Group -like 'Workbook*' })
     $results=[System.Collections.Generic.List[object]]::new()
-    if ($Mode -eq 'Synthetic') {
-        $fixture=Get-Content -LiteralPath (Join-Path $script:AuditRoot 'fixtures/synthetic.json') -Raw | ConvertFrom-Json -Depth 100
-    }
     foreach ($source in $catalog) {
         if ($source.Group -ne 'Core' -and $source.Group -notin $Include) { $results.Add((New-AuditResult $source 'NotSelected' 'Optional source group was not requested.')); continue }
         if ($source.Provider -eq 'OfflineSnapshot') {
             if ($snapshots.ContainsKey($source.Id)) { $results.Add($snapshots[$source.Id]) }
             else { $results.Add((New-AuditResult $source 'NotConnected' 'No verified live connector for this workload; a separately saved snapshot is not proof of live coverage.')) }
             continue
-        }
-        if ($Mode -eq 'Synthetic') {
-            $item=Get-AuditProperty $fixture $source.Id
-            if ($null -eq $item) { $r=New-AuditResult $source 'NotProvided' 'No synthetic fixture for this selected source; this is not tenant data.' }
-            else {
-                $r=New-AuditResult $source ([string]$item.Status) ([string]$item.Reason)
-                $r.Items=@($item.Items); $r.Count=$r.Items.Count; $r.PageCount=if ($r.Status -eq 'Collected') { 1 } else { 0 }
-            }
-            $results.Add($r); continue
         }
         # Recheck each source, not merely once at startup: no source may reuse a stale identity check.
         $context=if ($source.Provider -eq 'Graph') { Get-AuditGraphContext $TenantId $ExpectedAccount } else { Get-AuditCommandSession $TenantId $source.Provider $ExpectedAccount }
@@ -97,10 +84,10 @@ function Invoke-M365SecurityAudit {
         }
     }
     $resultArray=$results.ToArray(); $observations=@(Get-AuditObservations $resultArray)
-    $metadata=[pscustomobject]@{ SchemaVersion='1.1'; ToolVersion='0.2.0-terminal'; Mode=$Mode; TenantId=if ($Mode -eq 'Live') { $TenantId.ToString() } else { 'SYNTHETIC-NOT-A-TENANT' };
+    $metadata=[pscustomobject]@{ SchemaVersion='1.1'; ToolVersion='0.2.0-terminal'; Mode=$Mode; TenantId=$TenantId.ToString();
         StartedAtUtc=$started; FinishedAtUtc=[DateTime]::UtcNow.ToString('o'); PowerShellVersion=$PSVersionTable.PSVersion.ToString();
         SelectedGroups=$plan.SelectedGroups; MaxPages=$MaxPages; MaxRecords=$MaxRecords;
-        OrganizationWideConfirmed=($Mode -eq 'Live' -and [bool]$ConfirmOrganizationScope); AccountVerification=if ($Mode -eq 'Live') { 'Exact delegated account and tenant checked per source; gaps recorded.' } else { 'Synthetic: not applicable' };
+        OrganizationWideConfirmed=[bool]$ConfirmOrganizationScope; AccountVerification='Exact delegated account and tenant checked per source; gaps recorded.';
         Scope='Current-state configuration snapshot only. Not a complete M365 inventory, effective-policy engine, vulnerability scan or certification.';
         Privacy='No users, sign-ins, mail content, credentials or OAuth grants queried. Policy targeting may contain names, IDs, addresses and infrastructure data. Keep local and access controlled.' }
     if ('WorkbookExchange' -in $Include) { $metadata | Add-Member -NotePropertyName WorkbookAntiPhishBaseline -NotePropertyValue $WorkbookAntiPhishBaseline }
@@ -110,4 +97,19 @@ function Invoke-M365SecurityAudit {
         CollectedCount=@($resultArray | Where-Object Status -eq 'Collected').Count;
         IncompleteCount=@($resultArray | Where-Object { $_.Status -notin @('Collected','NotSelected') }).Count; FindingCount=$observations.Count;
         Mode=$Mode; TenantId=$metadata.TenantId; Metadata=$metadata; Evidence=$resultArray; Coverage=@($resultArray | Select-Object SourceId,Group,Provider,Status,Count,Reason,MissingFields,Notes); Observations=$observations }
+}
+
+function Invoke-M365SecurityAudit {
+    [CmdletBinding()]
+    param(
+        [ValidateSet('Live')][string]$Mode,
+        [ValidateSet('Authentication','Consent','Administration','TenantInventory','Intune','Exchange','Purview','WorkbookIdentity','WorkbookExchange','WorkbookCollaboration')][string[]]$Include=@(),
+        [string]$OutputPath='',[guid]$TenantId=[guid]::Empty,
+        [string]$ExpectedAccount='', [guid]$ConfirmTenantId=[guid]::Empty, [switch]$ConfirmOrganizationScope,
+        [ValidateRange(1,10000)][int]$MaxPages=100,[ValidateRange(1,1000000)][int]$MaxRecords=50000,
+        [object]$WorkbookCollaborationSnapshot=$null,
+        [Alias('WorkbookMailBaseline')][ValidateSet('None','Standard','Strict')][string]$WorkbookAntiPhishBaseline='None'
+    )
+    if(-not $PSBoundParameters.ContainsKey('Mode')){throw 'Live audit requires an explicit -Mode Live. No session was inspected and nothing was collected or written.'}
+    Invoke-FlapjacksAuditCore @PSBoundParameters
 }

@@ -4,38 +4,25 @@
 
 This is the organization-configuration audit component for the integrated **Audit / Pull Logs** terminal launcher. It is separate from the earlier review build. The launcher owns administrator sign-in and confirmation prompts; this module never authenticates, grants permissions or changes tenant settings.
 
-## Default: terminal and memory only
+## Plan first; collection requires verified live sessions
 
-From PowerShell 7.4 or later:
-
-```powershell
-Import-Module ./M365SecurityAudit.psm1
-$result = Invoke-M365OrganizationAudit -Mode Synthetic
-Write-M365AuditSummary -Result $result
-Write-M365AuditSource -Result $result -SourceId conditional-access -Offset 0 -Limit 20
-```
-
-No files are created when `-OutputPath` is omitted. The returned object retains Metadata, Coverage, Observations and Evidence for the launcher's terminal details menu. The standalone `Start-M365SecurityAudit.ps1 -Mode Synthetic` prints a summary and then exits; use the module/launcher to retain and inspect unsaved evidence.
-
-All example records are invented. The full synthetic run has 46 selected sources, 43 collected and three deliberate gaps. Nothing connects to Microsoft.
-
-## Optional structured local export
-
-Only when the operator chooses to save evidence:
+From PowerShell 7.4 or later in this directory:
 
 ```powershell
-$result = Invoke-M365OrganizationAudit -Mode Synthetic -OutputPath ./reports/demo
-Write-M365AuditSummary -Result $result
-./Test-AuditManifest.ps1 -Path ./reports/demo
+./Start-M365SecurityAudit.ps1 -Mode Plan
 ```
 
-Exports: `audit.json`, `coverage.csv`, `inventory.csv`, `observations.csv`, `collection-plan.json`, `evidence/*.json`, and `manifest.json`. No HTML is generated. Use a new directory; existing output paths are refused. Exported identities, policy targeting and infrastructure may be confidential.
+The standalone script defaults to `Plan`, which only prints the source/permission plan. The interactive app is [Start-Flapjacks](../README.md). App launchers no longer accept synthetic mode. Exported collection APIs accept Live only. QA data, replay consumers and scenarios are retained in a separate private QA copy and are not included in this public tree.
+
+No files are created when `-OutputPath` is omitted. A completed result retains Metadata, Coverage, Observations and Evidence. From the interactive app, **P** exports the existing audit as PDF/Excel/CSV plus supporting evidence; **S** saves JSON. See [postures checked and why](../../docs/posture/README.md).
+
+Exports require a new private destination. They do not recollect or authenticate. Use `Test-AuditManifest.ps1` to verify the saved bundle's file consistency.
 
 ## Live audit gate and launcher contract
 
 1. The launcher establishes its approved delegated administrator sessions and verifies the account and tenant.
 2. Display `Get-M365OrganizationAuditPlan`: all 46 supported source families, read scopes, limitations and data sensitivity.
-3. Ask the operator to type the exact tenant confirmation, for example `AUDIT <tenant-guid>`, and explicitly agree to organization-wide configuration collection.
+3. Display the verified tenant/account and concrete scope; require the exact `AUDIT` confirmation (`WORKBOOK` for W). Direct API callers pass the matching confirmed tenant ID explicitly.
 4. Only after both responses match, call:
 
 ```powershell
@@ -49,7 +36,7 @@ Add `-OutputPath` only after the operator opts into saving evidence. The gate is
 
 The wrapper includes all source groups. “Organization-wide” describes the subject scope, **not a claim to collect every Microsoft 365 setting**. Seven core sources plus explicit supported authentication, consent, administration, tenant inventory, Intune metadata, Exchange and Purview sources are documented in [SOURCES](docs/SOURCES.md). No users, sign-in logs, mail bodies, OAuth grants, app credentials, active probes or tenant writes are collected. Intune remains metadata-only. Conditional Access and other policy snapshots are not effective-enforcement results.
 
-The underlying `Invoke-M365SecurityAudit` supports selected `-Include` groups and enforces the same live gate through `-ConfirmTenantId` and `-ConfirmOrganizationScope`; use the full wrapper for the integrated full-organization audit.
+The underlying `Invoke-M365SecurityAudit` supports selected `-Include` groups and enforces the same live gate through `-ConfirmTenantId` and `-ConfirmOrganizationScope`; use the full wrapper for the integrated full-organization audit. Both APIs require explicit `-Mode Live`; omission or a retired mode stops before session checks, collection or output creation. The standalone launcher still defaults to local `Plan`.
 
 ## Permissions and gaps
 
@@ -59,10 +46,13 @@ Supported cloud: Microsoft global cloud only. Exchange/Purview require one activ
 
 ## Validation
 
+From the repository root, run only the public static check:
+
 ```powershell
-./tests/Test-All.ps1
-./tests/Test-TerminalGates.ps1
+./tools/Test-ReleaseBoundary.ps1
 ```
+
+The following counts are historical private QA results, not replacement-candidate acceptance:
 
 - **159 collection/report assertions passed.**
 - **48 terminal gate/identity assertions passed.**

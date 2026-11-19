@@ -2,7 +2,7 @@
 
 Read-only configuration audit component. Review build, not a certified security product.
 
-- Default operation is Synthetic; optional reports require an explicit OutputPath. Otherwise no disk writes occur.
+- The standalone launcher defaults to local Plan. Collection APIs require explicit Mode Live; there is no synthetic collection path. Optional reports require an explicit OutputPath. Otherwise no disk writes occur.
 - Live requires tenant ID, matching repeated tenant, exact expected delegated administrator UPN and explicit organization-wide scope confirmation, before session/disk activity.
 - Identity is rechecked per source. Graph is delegated/global only. Workload REST identity, auth metadata, single-session status, token status and command origin must match.
 - No sign-in, consent, app/credential creation, role activation, permission grant, tenant setting changes, users/logs/content, OAuth grants, exploitation or active probes.
