@@ -5,7 +5,7 @@
 - **Collected**: the configured request completed and all observed top-level Graph continuation pages were collected, or all configured command variants succeeded without a detected warning/property gap. This is **not** proof of a complete workload inventory or effective protection.
 - **Partial**: records may exist, but paging/record caps, an invalid/repeated continuation, malformed response, incomplete expanded relationship, missing selected fields, command warning or later request failure prevents a complete claim.
 - **NotSelected**: explicit opt-in was not provided. No read attempted.
-- **NotProvided**: synthetic mode has no supplied fixture for a selected source. Never tenant evidence.
+- **NotProvided**: a historical saved synthetic result lacked a supplied source. This remains a provenance/coverage label for old files, not a current collection mode or tenant evidence.
 - **ModuleUnavailable / NotConnected**: prerequisite module/session absent or session identity ambiguous. No sign-in/install attempted.
 - **TenantMismatch / IdentityMismatch / UnsupportedCloud**: tenant, delegated-account or cloud validation failed. No request for the affected source was made.
 - **InsufficientPermissions**: no supported read scope appears in the existing delegated Graph context. No consent request or privileged fallback.

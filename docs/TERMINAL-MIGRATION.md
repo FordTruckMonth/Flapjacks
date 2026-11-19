@@ -8,19 +8,15 @@ From the repository directory in PowerShell 7.4+:
 ./terminal/Start-M365Toolkit.ps1
 ```
 
-For a completely offline demonstration:
+Synthetic mode has been removed from the application. Use the [OS setup READMEs](../README.md#start-with-the-organization-wide-audit) for a live launch; fixtures and their dependent scenarios remain only in a separate private QA copy.
 
-```powershell
-./terminal/Start-M365Toolkit.ps1 -Mode Synthetic
-```
-
-The new application is additive under `terminal/`. Existing root PowerShell files, fixtures and the selected README banner are preserved. `Start-BecInvestigation.ps1` remains the legacy command; it is **not** an alias for the new launcher. Existing scripts can keep their legacy behavior until the operator explicitly switches entrypoints.
+The application remains under `terminal/`; the root BEC collector and selected README banner are preserved. QA data and replay code are removed from the proposed public tree. `Start-BecInvestigation.ps1` remains the legacy command, not an alias for the terminal launcher. Direct collection APIs and the BEC launcher now require explicit `-Mode Live`; previously offline invocations stop before work.
 
 ## Important differences
 
 | Area | Terminal entrypoint | Legacy root entrypoint |
 |---|---|---|
-| Workflow | Sign-in/reuse prompt, then Audit or Pull Logs | Direct fixture/live mailbox investigation |
+| Workflow | Sign-in/reuse prompt, then Audit or Pull Logs | Direct live mailbox investigation |
 | Authentication | Graph or Exchange device sign-in/reuse first; authenticated tenant/account confirmation; permissions deferred by action | Operator establishes sessions separately |
 | Interface | Terminal summaries and paginated in-memory source viewer | Local static HTML case report |
 | Files | Optional JSON/CSV evidence and hashes | Case files including HTML always written |
@@ -31,7 +27,7 @@ Mailbox scope is a request boundary, not a reduction in existing token privilege
 
 ## Sign in first, confirm the resolved organization
 
-The first prompt is `G` (default Graph device sign-in), `E` (Exchange device sign-in), or `R` (reuse either provider). There is no manual tenant GUID prompt before authentication. Initial Graph sign-in requests only `User.Read`. `Get-MgContext` or Exchange `Get-ConnectionInformation.TenantID` supplies the authenticated tenant and account for confirmation. Missing, ambiguous or unreliable identity metadata stops the workflow; the app does not infer tenant identity from an email suffix.
+The launch scripts first require an affirmative `LIVE` response unless the operator supplied explicit `-Mode Live`. The exported `Invoke-M365Terminal` requires that bound mode and stops before work if it is omitted. The operator then selects `G` (identity-only Graph device sign-in), `A` (Graph Audit approved-read sign-in), `E` (Exchange device sign-in), or `R` (reuse either provider). Blank input or EOF cancels at the live, sign-in and reuse-provider prompts; no provider is selected by default. There is no manual tenant GUID prompt before authentication. G requests only `User.Read`; A displays its approved Audit read scopes before selection. `Get-MgContext` or Exchange `Get-ConnectionInformation.TenantID` supplies the authenticated tenant and account for confirmation. Missing, ambiguous or unreliable identity metadata stops the workflow; the app does not infer tenant identity from an email suffix.
 
 The confirmed context binds every later component. Full audit displays Graph, Exchange and Purview requirements. Missing or mismatched components are independent coverage gaps: Graph-only audits need no Exchange connection. Additional Graph device sign-in is pinned to the confirmed tenant, and the returned account must match. Exchange device sign-in is checked after it returns. Purview uses a preconnected matching session only. Organization-wide audit still requires the typed `AUDIT <resolved-tenant-guid>` confirmation and a separate authorization answer before collection.
 
@@ -43,13 +39,12 @@ Use least-privileged approved read roles, not Global Administrator merely to mak
 
 ## Validation and rollout
 
-Run both independent suites:
+Run the public static check from the repository root:
 
 ```powershell
-./tests/Test-All.ps1
-./terminal/tests/Test-All.ps1
+./tools/Test-ReleaseBoundary.ps1
 ```
 
-Only synthetic fixtures, mocked authentication and injected transports were used for this change. See the terminal validation JSON for exact counts. Windows/macOS integration, actual device-code sign-in, Microsoft module/session lifetime, tenant licensing/RBAC, server paging and policy effectiveness remain unvalidated. Review the draft PR before merging. No merge or deployment is included.
+Historical development used synthetic fixtures, mocked authentication and injected transports in QA. That data and the dependent scenarios are retained only in a separate private copy and were not rerun for this cleanup. See the terminal validation JSON for exact counts. Windows/macOS integration, actual device-code sign-in, Microsoft module/session lifetime, tenant licensing/RBAC, server paging and policy effectiveness remain unvalidated. Review the draft PR before merging. No merge or deployment is included.
 
 Do not upload a real evidence directory to GitHub. Keep optional outputs local and access-controlled. Hashes detect later byte changes, not evidence truth. Existing licensing is unchanged.

@@ -1,5 +1,7 @@
 # Terminal adapter validation
 
+This is a historical QA record. Named test scripts and their data are retained in the separate private QA copy, are not shipped in this public tree, and were not run for this cleanup. Current candidate receipts cover static inspection only.
+
 Version 0.2.0-terminal; audit schema 1.1; manifest schema 1.0. Tested offline on Linux x86_64 with official portable PowerShell 7.7.0.
 
 - `tests/Test-All.ps1`: **159 assertions passed**, including collection pagination/retries/errors, selected-field projections, safe output, command origin/prompt guards, Purview DistributionDetail and manifest integrity.

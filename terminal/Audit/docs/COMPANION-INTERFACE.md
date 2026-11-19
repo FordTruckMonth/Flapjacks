@@ -26,7 +26,7 @@ Optional `-OutputPath` writes JSON/CSV and hash manifest. Omitted path means no 
 
 Live gate order: nonempty TenantId; explicit ConfirmOrganizationWide; ConfirmedTenantId equality; ExpectedAccount UPN. This happens before directory creation or session calls. The module then checks delegated exact account+tenant per source. Graph is delegated-only and global-cloud only. Workload contexts reject certificate authentication, missing documented auth metadata, cross-tenant delegation, mismatched UPN, multiple sessions, prefixes and inactive tokens. Cmdlets bind to the validated REST session's module.
 
-The wrapper calls `Invoke-M365SecurityAudit` internally with all optional source groups and maps its confirmation parameters to `ConfirmTenantId` / `ConfirmOrganizationScope`. Both APIs enforce the live gate. Synthetic mode needs no gate and never examines real sessions.
+The wrapper uses the shared internal audit core with all optional source groups and maps its confirmation parameters to `ConfirmTenantId` / `ConfirmOrganizationScope`. Both public APIs accept Live only and enforce the live gate. There is no fixture collection or replay consumer in the public tree; historical saved-file provenance is preserved.
 
 `Write-M365AuditSummary` reports every source status and important gaps. `Write-M365AuditSource` validates an exact source ID and prints a bounded JSON view in terminal. Both neutralize terminal control codes, including ANSI/OSC and bidi reordering. They do not return raw strings as executable commands, write files or launch a browser.
 

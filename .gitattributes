@@ -1,0 +1,19 @@
+# Additional archive safeguard; QA data and replay code are absent from the public Git tree.
+/tests export-ignore
+/tests/** export-ignore
+/fixtures export-ignore
+/fixtures/** export-ignore
+/terminal/tests export-ignore
+/terminal/tests/** export-ignore
+/terminal/fixtures export-ignore
+/terminal/fixtures/** export-ignore
+/terminal/Logs/tests export-ignore
+/terminal/Logs/tests/** export-ignore
+/terminal/Logs/fixtures export-ignore
+/terminal/Logs/fixtures/** export-ignore
+/terminal/Audit/tests export-ignore
+/terminal/Audit/tests/** export-ignore
+/terminal/Audit/fixtures export-ignore
+/terminal/Audit/fixtures/** export-ignore
+/.github export-ignore
+/.github/** export-ignore

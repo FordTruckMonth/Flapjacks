@@ -4,7 +4,7 @@ This is a functioning offline review build with implemented live adapters, **not
 
 | Area | Implemented and fixture-verified | Remaining limitation |
 |---|---|---|
-| CLI | Target prompt, 30-day default, explicit UTC range, fixture/live separation, bounded output | Live operator authentication remains separate and untested. |
+| CLI | Target prompt, 30-day default, explicit UTC range, explicit Live opt-in, bounded output | Live operator authentication remains separate and untested. |
 | Exchange | All requested current snapshot categories; hidden rules; full/SendAs/SendOnBehalf; folder ACL cap/failures | Actual field availability, archive state, RBAC and tenant cmdlet support untested. No historical reconstruction from snapshots. |
 | Trace | Sent/received, 10-day windows, full-page continuation, details, quotas, no-progress/caps, dedupe, volumes | Trace latency and real continuation semantics need tenant acceptance. Current primary/SMTP aliases are queried; past aliases cannot be reconstructed from the current snapshot. Messages with more than 1,000 recipients may need a separate trace-ID-specific investigation. |
 | Purview | Daily ReturnLargeSet paging; other-actor target matching; raw Bind/Sync granularity | Tenant-wide 50k/session cap may prevent full collection. Missing/legacy identities can evade matching. No Management Activity API adapter. |

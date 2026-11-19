@@ -75,20 +75,26 @@ function Export-ToolkitMailboxSnapshot {
 }
 function Invoke-ToolkitCurrentMailboxSnapshot {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][hashtable]$Runtime,[Parameter(Mandatory)][guid]$TenantId,[Parameter(Mandatory)][string]$Account,[Parameter(Mandatory)][string]$Target)
+    param([ValidateSet('Live')][string]$Mode,[Parameter(Mandatory)][hashtable]$Runtime,[Parameter(Mandatory)][guid]$TenantId,[Parameter(Mandatory)][string]$Account,[Parameter(Mandatory)][string]$Target)
+    if(-not $PSBoundParameters.ContainsKey('Mode')){throw 'Live snapshot requires an explicit -Mode Live. No session was inspected and nothing was collected or written.'}
     if(-not (Test-ToolkitAddress $Target)){throw 'One exact UPN required; no aliases, groups or wildcards.'}
-    Import-Module (Join-Path $script:ToolkitRoot 'Logs/M365Bec.psm1') -DisableNameChecking
+    $logsModule=Import-Module (Join-Path $script:ToolkitRoot 'Logs/M365Bec.psm1') -DisableNameChecking -PassThru
     $transport=New-ToolkitMailboxTransport $Runtime $TenantId $Account $Target
     $context=New-BecContext -Transport $transport
+    # The four scoped reads use a private acquisition helper only after the Live guard.
+    $snapshotRead={
+        param($Source,$Command,$Parameters)
+        & $logsModule { param($name,$readCommand,$readParameters,$readContext) Invoke-BecSnapshot $name $readCommand $readParameters $readContext } $Source $Command $Parameters $context
+    }.GetNewClosure()
     $started=[DateTimeOffset]::UtcNow.ToString('o')
-    $mail=Invoke-BecSnapshot 'Exchange.Mailbox' 'Get-Mailbox' @{Identity=$Target} $context
+    $mail=& $snapshotRead 'Exchange.Mailbox' 'Get-Mailbox' @{Identity=$Target}
     # Require canonical UPN here, stricter than the legacy alias-tolerant collector.
     if($mail.Status -ne 'Collected' -or $mail.Items.Count -ne 1 -or ([string](Get-ToolkitValue $mail.Items[0] 'UserPrincipalName')) -ine $Target){throw 'Exact UPN mailbox resolution failed; no further mailbox reads.'}
     $collections=[Collections.Generic.List[object]]::new();$collections.Add($mail)
-    $rules=Invoke-BecSnapshot 'Exchange.Rules' 'Get-InboxRule' @{Mailbox=$Target;IncludeHidden=$true;ResultSize=1000} $context
+    $rules=& $snapshotRead 'Exchange.Rules' 'Get-InboxRule' @{Mailbox=$Target;IncludeHidden=$true;ResultSize=1000}
     if($rules.Items.Count -ge 1000 -and $rules.Status -eq 'Collected'){$rules.Status='Partial';$rules.Reason='Rule result cap reached; completeness unknown.'}
     $collections.Add($rules)
-    $collections.Add((Invoke-BecSnapshot 'Exchange.FullAccess' 'Get-MailboxPermission' @{Identity=$Target} $context))
-    $collections.Add((Invoke-BecSnapshot 'Exchange.SendAs' 'Get-RecipientPermission' @{Identity=$Target} $context))
+    $collections.Add((& $snapshotRead 'Exchange.FullAccess' 'Get-MailboxPermission' @{Identity=$Target}))
+    $collections.Add((& $snapshotRead 'Exchange.SendAs' 'Get-RecipientPermission' @{Identity=$Target}))
     [pscustomobject]@{Mode='Live';Metadata=[pscustomobject]@{TargetUpn=$Target;CollectionStartedUtc=$started;CollectionFinishedUtc=[DateTimeOffset]::UtcNow.ToString('o')};Collections=$collections.ToArray()}
 }

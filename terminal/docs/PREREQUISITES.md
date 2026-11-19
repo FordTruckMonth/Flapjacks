@@ -1,11 +1,13 @@
 # Prerequisites and setup (Windows, macOS, Debian)
 
+Start with the standalone OS README: [Windows](../../docs/setup/windows/README.md), [macOS](../../docs/setup/macos/README.md), or [Linux/Debian](../../docs/setup/linux/README.md). The Windows guide covers trusted-download unblocking and line-one `UnauthorizedAccess` even with `RemoteSigned`.
+
 This is a **two-step setup**, not an all-in-one operating-system bootstrap:
 
 1. Install an official, supported **PowerShell 7** runtime for your OS.
 2. Run the same `Install-Prerequisites.ps1` on Windows, macOS or Debian to check/install the selected Microsoft modules **for your user only**.
 
-The application and setup scripts use only PowerShell. **Python, Node, a web server and a browser driver are not required.** A separate file-transfer helper may use Python; that is not a toolkit dependency and this installer never installs it. Synthetic mode needs only PowerShell, no Microsoft modules or account.
+The application and setup scripts use only PowerShell. **Python, Node, a web server and a browser driver are not required.** A separate file-transfer helper may use Python; that is not a toolkit dependency and this installer never installs it.
 
 ## Requirements and boundaries
 
@@ -35,7 +37,7 @@ With an existing WinGet, run from a normal terminal (Windows PowerShell 5.1 is s
 winget install --id Microsoft.PowerShell --exact --source winget --scope user
 ```
 
-Keep agreement prompts. If this package/host cannot install in user scope, **stop** rather than falling back to elevation. Without WinGet, or for a managed/server deployment, use the official package choices in [Microsoft's Windows installation guide](https://learn.microsoft.com/en-us/powershell/scripting/install/install-powershell-on-windows). Open a new terminal and run `pwsh`. Check the Windows edition/lifecycle support matrix before using Exchange; setup does not certify OS support. If scripts are blocked, use your organization's signed-script/approval process, not an execution-policy bypass.
+Keep agreement prompts. If this package/host cannot install in user scope, **stop** rather than falling back to elevation. Without WinGet, or for a managed/server deployment, use the official package choices in [Microsoft's Windows installation guide](https://learn.microsoft.com/en-us/powershell/scripting/install/install-powershell-on-windows). Open a new terminal and run `pwsh`. Check the Windows edition/lifecycle support matrix before using Exchange; setup does not certify OS support. If scripts are blocked, stop and contact your administrator for an [approved signed or managed Windows distribution](../../docs/setup/windows/README.md#2-obtain-an-approved-signed-or-managed-distribution). Keep the existing execution policy, download-origin markers and trust controls intact.
 
 ### macOS
 
@@ -68,7 +70,7 @@ sudo apt-get install powershell
 
 No `-y`, repository/key additions or privilege escalation are hidden in the shared script. Open `pwsh` afterward.
 
-**Debian limitation:** PowerShell/Graph setup and offline synthetic mode are supported by this setup path. Debian is not listed in Microsoft's reviewed Exchange module Linux support matrix, so `-IncludeExchange` reports those modules as **Unsupported** and skips them on Debian. Purview is unavailable on Linux. Use an approved supported host for those sources; do not describe a Debian Graph-only run as a complete full-organization audit.
+**Debian limitation:** PowerShell/Graph setup is supported by this setup path. Debian is not listed in Microsoft's reviewed Exchange module Linux support matrix, so `-IncludeExchange` reports those modules as **Unsupported** and skips them on Debian. Purview is unavailable on Linux. Use an approved supported host for those sources; do not describe a Debian Graph-only run as a complete full-organization audit.
 
 ## Step 2: one shared module installer
 
@@ -100,13 +102,11 @@ An incompatible highest visible version is reported **Blocked**, not automatical
 After installation, open a fresh PowerShell session, rerun `-Mode Check` with the same component selection, then:
 
 ```powershell
-./terminal/Start-M365Toolkit.ps1
-# Or, without any tenant/module use:
-./terminal/Start-M365Toolkit.ps1 -Mode Synthetic
+./terminal/Start-Flapjacks.ps1
 ```
 
 Authentication remains a separate choice. Microsoft device-code approval requires its web page on an approved browser/device. Full audit requires organization-scope confirmation and matching component identities; installing modules does not waive those gates.
 
 ## Validation limits
 
-Native PowerShell syntax and mocked Windows/macOS/Debian plans, version selection, per-user install arguments, WhatIf, idempotency, repository rejection/change, unsupported components and failures are tested. Local Debian plan/check is exercised without installs. **No Windows/macOS/Debian package installation, Microsoft module download/import, tenant authentication or live collection was performed for this setup change.** Run the integrated suite with `./terminal/tests/Test-All.ps1`.
+Native PowerShell syntax and mocked Windows/macOS/Debian plans, version selection, per-user install arguments, WhatIf, idempotency, repository rejection/change, unsupported components and failures are tested. Local Debian plan/check is exercised without installs. **No Windows/macOS/Debian package installation, Microsoft module download/import, tenant authentication or live collection was performed for this setup change.** These are historical private QA results. The public tree contains only static checks: run `./tools/Test-ReleaseBoundary.ps1` from the repository root; no QA scenarios are shipped or executed by public CI.
